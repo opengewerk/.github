@@ -9,6 +9,14 @@ OpenGewerk ist eine Open-Source-Software für Handwerksbetriebe, die CRM und ERP
 
 **Self-hosted · Open Source · Deutsch**
 
+## Kein Tarifmodell
+
+OpenGewerk ist nicht die kostenlose Alternative zu den etablierten Systemen. Es ist die Software, in der niemand eine Funktion zurückhält, um einen höheren Tarif zu verkaufen. Keine Tarifstufen, keine Nutzerlimits, keine Schnittstelle, die erst ab einem Paket freigeschaltet wird, und keine Auswertung, die von der gebuchten Stufe abhängt. Der Funktionsumfang ist der, der im Repository liegt.
+
+Geld kann später neben der Software entstehen, nicht in ihr: Hosting für Betriebe, die nicht selbst hosten wollen, Installation und Migration, Support und Wartung, Schulungen, Anbindungen an Messgeräte und Fremdsysteme als Auftragsarbeit. Jede dieser Leistungen ist ein Angebot und keine Voraussetzung. Ein Betrieb muss OpenGewerk ohne fremde Hilfe betreiben können, sonst wäre die Beschränkung nur an eine andere Stelle gewandert.
+
+Daraus folgt zweierlei: Es wird keine kommerzielle Fassung und keine bezahlten Erweiterungen geben, auch nicht vom Projekt selbst, und es gibt kein Contributor License Agreement. Ausführlich steht das in [Leitentscheidung 9 der Feature-Gliederung](https://github.com/opengewerk/opengewerk/blob/main/docs/konzept/Feature-Gliederung.md#0-leitentscheidungen).
+
 ## Die drei Repositories
 
 | Repository | Wofür |
