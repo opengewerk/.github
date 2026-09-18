@@ -74,7 +74,7 @@ Entscheidungen, die schwer umkehrbar sind oder mehrere Module betreffen, werden 
 
 ## Lizenz deiner Beiträge
 
-Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk` und `opengewerk-kanzlei`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht.
+Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk` und `opengewerk-kanzlei`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht, und das ist eine Festlegung, keine Lücke: Ein CLA bräuchte das Projekt nur, um seinen eigenen Code später zusätzlich unter eine geschlossene Lizenz stellen zu können. Genau das soll es nicht geben. Siehe Leitentscheidung 9 der Feature-Gliederung.
 
 ## Umgang miteinander
 
