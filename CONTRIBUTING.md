@@ -9,6 +9,7 @@ Das Projekt ist in der Planungsphase. Es gibt noch keinen lauffähigen Code, nur
 | Anliegen | Ort |
 | --- | --- |
 | Frage, Idee, Erfahrungsbericht, noch kein konkreter Vorschlag | Discussions des passenden Repositories |
+| Kurze Frage, Zuruf, jemanden erreichen | [Discord](https://discord.gg/NRrEvbQdxz) |
 | Konkreter Fehler | Issue mit der Vorlage *Fehlerbericht* |
 | Konkreter Funktionswunsch oder Konzeptänderung | Issue mit der Vorlage *Funktionswunsch* |
 | Sicherheitslücke | **Nicht** öffentlich, siehe [SECURITY.md](SECURITY.md) |
@@ -21,6 +22,8 @@ Welches Repository das richtige ist:
 - [`opengewerk-api-spec`](https://github.com/opengewerk/opengewerk-api-spec) für alles, was zwischen beiden über die Leitung geht.
 
 Im Zweifel reicht ein Issue im Hauptrepository, es wird dann verschoben.
+
+Der [Discord-Server](https://discord.gg/NRrEvbQdxz) ist für das Dazwischen: eine kurze Frage, ein Zuruf, jemanden erreichen. Er ersetzt die Discussions nicht, denn ein Chatverlauf ist nicht durchsuchbar. Was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue, sonst findet es in einem halben Jahr niemand wieder.
 
 ## Sprache
 
