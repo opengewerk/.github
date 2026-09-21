@@ -17,26 +17,34 @@ Geld kann später neben der Software entstehen, nicht in ihr: Hosting für Betri
 
 Daraus folgt zweierlei: Es wird keine kommerzielle Fassung und keine bezahlten Erweiterungen geben, auch nicht vom Projekt selbst, und es gibt kein Contributor License Agreement. Ausführlich steht das in [Leitentscheidung 9 der Feature-Gliederung](https://github.com/opengewerk/opengewerk/blob/main/docs/konzept/Feature-Gliederung.md#0-leitentscheidungen).
 
-## Die drei Repositories
+## Die Repositories
 
 | Repository | Wofür |
 | --- | --- |
 | [opengewerk](https://github.com/opengewerk/opengewerk) | Die Handwerkersoftware selbst: Angebot, Regiebericht, Rechnung, Plantafel, Zeiterfassung, Prüfprotokolle für Elektro und PV, vollständige Buchhaltung, GoBD-konform und als offline-fähige PWA. |
 | [opengewerk-kanzlei](https://github.com/opengewerk/opengewerk-kanzlei) | Der Hub für Steuerberater, der alle OpenGewerk-Mandanten in einer Anwendung bündelt. Föderiert statt zentral, die Daten bleiben beim Mandanten. |
 | [opengewerk-api-spec](https://github.com/opengewerk/opengewerk-api-spec) | Der gemeinsame API-Vertrag zwischen beiden: OpenAPI-Definition, JSON-Schemas und Konformitätstests, versioniert nach SemVer. |
+| [opengewerk-website](https://github.com/opengewerk/opengewerk-website) | Die Website unter [opengewerk.de](https://opengewerk.de), als statisches HTML mit Astro gebaut. |
+| [.github](https://github.com/opengewerk/.github) | Dieses Profil, die Beitragsregeln, der Verhaltenskodex, die Sicherheitsrichtlinie und die Marke. |
 
 ## Stand der Dinge
 
-Das Projekt ist in der **Planungsphase**. Es gibt noch keinen lauffähigen Code, wohl aber zwei ausgearbeitete Konzepte, die den Funktionsumfang vollständig beschreiben:
+Das Fundament der Handwerkersoftware ist gebaut, und seit September 2026 entsteht Phase 1, der MVP für den Pilotbetrieb. Eine Installation läuft über Docker Compose auf eigener Hardware, wird im Browser eingerichtet und führt Kunden, Objekte, Anlagen und Aufträge, im Büro wie auf der Baustelle und dort auch ohne Netz. Aus Angebot oder Kostenvoranschlag werden Auftragsbestätigung und Rechnung, einen Regiebericht unterschreibt der Kunde auf dem Gerät, und Rechnungen gibt es mit kumulierten Abschlägen und Storno, als PDF und an Unternehmen als E-Rechnung, als XRechnung oder ZUGFeRD-PDF. Was noch fehlt und in welcher Reihenfolge es kommt, steht im Fahrplan in Abschnitt 10 der Feature-Gliederung, was davon offen ist, im [Meilenstein Phase 1](https://github.com/opengewerk/opengewerk/milestone/2).
+
+Der Kanzlei-Hub ist noch in der Planung. Er baut auf der Buchhaltung der Handwerkersoftware auf, die dort mit Phase 3 kommt; bis dahin wird der gemeinsame API-Vertrag weitergeführt.
+
+Den vollständigen Funktionsumfang beschreiben die beiden Konzepte:
 
 - [Feature-Gliederung der Handwerkersoftware](https://github.com/opengewerk/opengewerk/blob/main/docs/konzept/Feature-Gliederung.md)
 - [Planungskonzept des Kanzlei-Hubs](https://github.com/opengewerk/opengewerk-kanzlei/blob/main/docs/konzept/Planungskonzept.md)
 
-Wer mitreden will, fängt dort an. Fachliche Rückmeldung aus dem Betriebs- oder Kanzleialltag ist gerade wertvoller als Code.
+Einen Überblick, auch im Vergleich mit anderen Lösungen, gibt [opengewerk.de](https://opengewerk.de). Fachliche Rückmeldung aus dem Betriebs- oder Kanzleialltag ist gerade wertvoller als Code.
 
 ## Mitmachen
 
 Die [Beitragsregeln](https://github.com/opengewerk/.github/blob/main/CONTRIBUTING.md) und der [Verhaltenskodex](https://github.com/opengewerk/.github/blob/main/CODE_OF_CONDUCT.md) gelten für alle Repositories der Organisation. Sicherheitslücken bitte über den Weg in [SECURITY.md](https://github.com/opengewerk/.github/blob/main/SECURITY.md) melden, nicht als öffentliches Issue.
+
+Für kurze Fragen gibt es einen [Discord-Server](https://discord.gg/NRrEvbQdxz). Er ersetzt die Discussions nicht: was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue.
 
 ## Branding
 
