@@ -1,0 +1,64 @@
+name: Fehlerbericht
+description: Etwas funktioniert nicht wie beschrieben
+title: "[Fehler]: "
+labels: ["Fehler"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke, dass du dir die Zeit nimmst. Diese Vorlage gilt für die Website unter
+        opengewerk.de und für die gemeinsamen Dokumente der Organisation. Die Anwendung,
+        der Kanzlei-Hub und die API-Spezifikation haben in ihren Repositories eigene Vorlagen.
+
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was ist passiert?
+      description: Beschreibe den Fehler in eigenen Worten.
+    validations:
+      required: true
+
+  - type: textarea
+    id: erwartet
+    attributes:
+      label: Was hättest du erwartet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Schritte zum Nachvollziehen
+      description: Nummerierte Liste, damit andere den Fehler nachstellen können.
+      placeholder: |
+        1. Seite X öffnen
+        2. Auf Y tippen
+        3. Z erscheint nicht
+    validations:
+      required: false
+
+  - type: input
+    id: fundstelle
+    attributes:
+      label: Fundstelle
+      description: Seite, Datei oder Adresse, falls zutreffend.
+    validations:
+      required: false
+
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung
+      description: Browser und Gerät, wenn es um die Darstellung geht.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: pruefung
+    attributes:
+      label: Vorab geprüft
+      options:
+        - label: Ich habe die offenen Issues durchgesehen und keinen passenden gefunden.
+          required: true
+        - label: Ich halte mich an den Verhaltenskodex der Organisation.
+          required: true

@@ -26,6 +26,12 @@ Im Zweifel reicht ein Issue im Hauptrepository, es wird dann verschoben.
 
 Der [Discord-Server](https://discord.gg/NRrEvbQdxz) ist für das Dazwischen: eine kurze Frage, ein Zuruf, jemanden erreichen. Er ersetzt die Discussions nicht, denn ein Chatverlauf ist nicht durchsuchbar. Was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue, sonst findet es in einem halben Jahr niemand wieder.
 
+## Labels und Vorlagen
+
+Alle Repositories haben dieselben sechs Labels: *Fehler*, *Funktionswunsch*, *Dokumentation*, *Konzept*, *Gute erste Aufgabe* und *Hilfe gesucht*, mit denselben Farben und Beschreibungen. `opengewerk` hat dazu je ein Label für seine Module und Bereiche. Ein neues Repository bekommt die sechs mit `gh label clone opengewerk/opengewerk-api-spec --repo opengewerk/<neues-repository>`, danach werden die englischen Vorgaben von GitHub gelöscht.
+
+Die Vorlagen für Issues in diesem Repository unter `.github/ISSUE_TEMPLATE` gelten für jedes Repository der Organisation ohne eigene, heute für die Website und für dieses Repository selbst. Die Anwendung, der Kanzlei-Hub und die Spezifikation haben eigene.
+
 ## Sprache
 
 - Dokumente, Issues, Pull-Request-Beschreibungen, Labels und Oberflächentexte sind auf **Deutsch**.
