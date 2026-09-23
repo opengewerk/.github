@@ -1,0 +1,42 @@
+name: Funktionswunsch
+description: Etwas Neues oder eine Änderung vorschlagen
+title: "[Wunsch]: "
+labels: ["Funktionswunsch"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Für offene Fragen und Ideen, die noch keinen konkreten Vorschlag haben, sind die
+        Discussions des Hauptrepositorys der bessere Ort. Ein Issue lohnt sich, wenn du
+        schon weißt, was du willst. Wünsche an die Anwendung gehören in ihr Repository.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem löst der Vorschlag?
+    validations:
+      required: true
+
+  - type: textarea
+    id: vorschlag
+    attributes:
+      label: Wie soll es aussehen oder funktionieren?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativen
+    attributes:
+      label: Welche Alternativen hast du bedacht?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: pruefung
+    attributes:
+      label: Vorab geprüft
+      options:
+        - label: Ich habe die offenen Issues durchgesehen und keinen passenden gefunden.
+          required: true
+        - label: Ich halte mich an den Verhaltenskodex der Organisation.
+          required: true
