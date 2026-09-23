@@ -2,7 +2,7 @@
 
 Schön, dass du hier bist. Diese Regeln gelten für alle Repositories der Organisation `opengewerk`.
 
-Das Projekt ist in der Planungsphase. Es gibt noch keinen lauffähigen Code, nur ausgearbeitete Konzepte, eine API-Spezifikation und die Repository-Gerüste. Deshalb ist fachliche Rückmeldung aus dem Betriebsalltag gerade mehr wert als jeder Pull Request: Was fehlt in der Belegkette? Welche Frist überwacht heute niemand? Welche Prüfung im Elektrohandwerk läuft noch auf Papier, weil keine Software sie abbildet?
+Die Handwerkersoftware läuft und steht vor dem ersten Pilotbetrieb: Kunden, Objekte und Aufträge, Angebot bis Rechnung mit E-Rechnung, der Regiebericht mit Unterschrift auf der Baustelle, auch ohne Netz. Der Kanzlei-Hub ist noch ein Konzept mit einer API-Spezifikation. Fachliche Rückmeldung aus dem Betriebsalltag ist deshalb weiter mehr wert als jeder Pull Request: Was fehlt in der Belegkette? Welche Frist überwacht heute niemand? Welche Prüfung im Elektrohandwerk läuft noch auf Papier, weil keine Software sie abbildet?
 
 ## Wo was hingehört
 
@@ -20,6 +20,7 @@ Welches Repository das richtige ist:
 - [`opengewerk`](https://github.com/opengewerk/opengewerk) für alles, was der Handwerksbetrieb benutzt.
 - [`opengewerk-kanzlei`](https://github.com/opengewerk/opengewerk-kanzlei) für alles, was die Steuerberaterkanzlei benutzt.
 - [`opengewerk-api-spec`](https://github.com/opengewerk/opengewerk-api-spec) für alles, was zwischen beiden über die Leitung geht.
+- [`opengewerk-website`](https://github.com/opengewerk/opengewerk-website) für die Seite unter opengewerk.de.
 
 Im Zweifel reicht ein Issue im Hauptrepository, es wird dann verschoben.
 
@@ -29,6 +30,7 @@ Der [Discord-Server](https://discord.gg/NRrEvbQdxz) ist für das Dazwischen: ein
 
 - Dokumente, Issues, Pull-Request-Beschreibungen, Labels und Oberflächentexte sind auf **Deutsch**.
 - Eingebürgerte Fachbegriffe bleiben englisch: Pull Request, Issue, Commit, Branch, Repository, Scope, Webhook.
+- **Code ist Englisch**, ohne Ausnahme: Bezeichner, Kommentare, Testnamen und die Namen von Code-Dateien, auch in Migrationen und in den Skripten der Workflows. Deutsch bleibt, was ein Mensch in einer Oberfläche liest, etwa ein `name:` eines Workflows oder die Meldung einer Prüfung.
 - Feldnamen in Datenstrukturen und JSON-Schemas sind englisch, ihre Beschreibungen deutsch.
 - Lizenztexte werden nicht übersetzt.
 
@@ -50,7 +52,7 @@ Das gilt für jede Datei in jedem Repository der Organisation, und die CI prüft
 ## Pull Requests
 
 1. Fork anlegen oder, mit Schreibrechten, einen Branch von `main` abzweigen.
-2. Änderung umsetzen und `CHANGELOG.md` unter `## [Unreleased]` ergänzen, wenn die Änderung für Anwender sichtbar ist.
+2. Änderung umsetzen und `CHANGELOG.md` unter `## [Unreleased]` ergänzen, im passenden Abschnitt und mit einem Satz, warum. Das gehört zu jedem Pull Request in einem Repository mit CHANGELOG; `.github` und `opengewerk-website` haben keines.
 3. Pull Request eröffnen, die Vorlage ausfüllen und auf das zugehörige Issue verweisen.
 4. Auf die Prüfung warten. `main` ist geschützt, direkte Pushes gibt es nicht.
 
@@ -58,12 +60,13 @@ Große Änderungen bitte vorher als Issue oder Discussion abstimmen. Ein fertige
 
 ## Änderungen an den Konzeptdokumenten
 
-Die Konzepte unter `docs/konzept/` sind die verbindliche Quelle, solange es keinen Code gibt. Für sie gilt zusätzlich:
+Die Konzepte unter `docs/konzept/` sind die verbindliche Quelle für den Funktionsumfang, auch jetzt, wo es Code gibt: was gebaut wird, steht zuerst dort. Für sie gilt zusätzlich:
 
 - Versionsnummer in der Kopfzeile anheben und das Änderungsprotokoll am Dateiende ergänzen.
 - Falsches wird an der Stelle selbst korrigiert, an der es steht. Eine Richtigstellung 400 Zeilen weiter unten liest niemand rechtzeitig.
 - Betrifft die Änderung mehrere Repositories, im Pull Request darauf hinweisen.
 - Rechtliche Aussagen brauchen eine Fundstelle: Paragraf, Norm oder Frist. Eine allgemeine Einschätzung reicht nicht.
+- Jeder Punkt der Feature-Gliederung hat eine Phase in Abschnitt 10. Wer einen Punkt einträgt, trägt seine Phase im selben Zug ein.
 
 ## Änderungen an der API-Spezifikation
 
@@ -73,11 +76,11 @@ Die Konzepte unter `docs/konzept/` sind die verbindliche Quelle, solange es kein
 
 ## Architekturentscheidungen
 
-Entscheidungen, die schwer umkehrbar sind oder mehrere Module betreffen, werden als Architecture Decision Record festgehalten, siehe `docs/adr/` im Hauptrepository. Wer eine bestehende Entscheidung umstoßen will, schreibt ein neues Record und setzt das alte auf `überholt durch`.
+Entscheidungen, die schwer umkehrbar sind oder mehrere Module betreffen, werden als Architecture Decision Record festgehalten, siehe `docs/adr/` im Hauptrepository. Wer eine bestehende Entscheidung umstoßen will, schreibt ein neues Record und setzt das alte auf `überholt durch`. Weicht der Code in einem Punkt ab, ohne die Entscheidung umzustoßen, bekommt das Record einen datierten Nachtrag mit Grund; umgeschrieben wird ein angenommenes Record nicht.
 
 ## Lizenz deiner Beiträge
 
-Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk` und `opengewerk-kanzlei`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht, und das ist eine Festlegung, keine Lücke: Ein CLA bräuchte das Projekt nur, um seinen eigenen Code später zusätzlich unter eine geschlossene Lizenz stellen zu können. Genau das soll es nicht geben. Siehe Leitentscheidung 9 der Feature-Gliederung.
+Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk`, `opengewerk-kanzlei` und `opengewerk-website`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht, und das ist eine Festlegung, keine Lücke: Ein CLA bräuchte das Projekt nur, um seinen eigenen Code später zusätzlich unter eine geschlossene Lizenz stellen zu können. Genau das soll es nicht geben. Siehe Leitentscheidung 9 der Feature-Gliederung.
 
 ## Umgang miteinander
 
