@@ -35,7 +35,8 @@ Die Handwerkersoftware in `opengewerk` ist lauffähig, mit Anmeldung, Mandantent
 - die Mandantentrennung: ein Betrieb, der Daten eines anderen lesen oder ändern kann, über die API, den Abgleich oder an der Row-Level Security der Datenbank vorbei
 - Rechte und Rollen: eine Rolle, die mehr darf, als ihre Rechte sagen, etwa ein Monteur, der Belege festschreibt
 - der Offline-Abgleich: ein Gerät, das etwas schreibt, das es nicht schreiben darf, oder einen festgeschriebenen Beleg ändert
-- Belege und Dateien: PDF, E-Rechnung, Unterschrift, der Dateispeicher
+- Belege und Dateien: PDF, E-Rechnung, Unterschrift, der Dateispeicher und die Dokumentenablage mit Fotos von der Baustelle
+- die Zeiterfassung, vor allem der Standort, den es nur mit Einwilligung gibt, und dass niemand die Zeiten anderer sieht, der sie nicht sehen darf
 - die E-Mail-Einstellungen eines Betriebs und die dort versiegelten Zugangsdaten
 - Schutz gegen fremde Seiten: Herkunftsprüfung, Cookies, Sicherheits-Header
 - Sicherung, Rückspielen und Update, die Docker-Konfiguration und die Voreinstellungen einer neuen Installation

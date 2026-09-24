@@ -2,7 +2,7 @@
 
 Schön, dass du hier bist. Diese Regeln gelten für alle Repositories der Organisation `opengewerk`.
 
-Die Handwerkersoftware läuft und steht vor dem ersten Pilotbetrieb: Kunden, Objekte und Aufträge, Angebot bis Rechnung mit E-Rechnung, der Regiebericht mit Unterschrift auf der Baustelle, auch ohne Netz. Der Kanzlei-Hub ist noch ein Konzept mit einer API-Spezifikation. Fachliche Rückmeldung aus dem Betriebsalltag ist deshalb weiter mehr wert als jeder Pull Request: Was fehlt in der Belegkette? Welche Frist überwacht heute niemand? Welche Prüfung im Elektrohandwerk läuft noch auf Papier, weil keine Software sie abbildet?
+Die Handwerkersoftware läuft und steht vor dem ersten Pilotbetrieb: Kunden, Objekte und Aufträge, Angebot bis Rechnung mit E-Rechnung, der Regiebericht mit Unterschrift und die Zeiterfassung auf der Baustelle, auch ohne Netz. Der Kanzlei-Hub ist noch ein Konzept mit einer API-Spezifikation. Fachliche Rückmeldung aus dem Betriebsalltag ist deshalb weiter mehr wert als jeder Pull Request: Was fehlt in der Belegkette? Welche Frist überwacht heute niemand? Welche Prüfung im Elektrohandwerk läuft noch auf Papier, weil keine Software sie abbildet?
 
 ## Wo was hingehört
 
@@ -48,6 +48,7 @@ Das gilt für jede Datei in jedem Repository der Organisation, und die CI prüft
 - **LF als Zeilenende**, geregelt über `.gitattributes`. Unter Windows nichts an `core.autocrlf` drehen, das erledigt die Datei.
 - Einrückung und Leerzeichen richten sich nach `.editorconfig`.
 - Keine Platzhalter wie TODO, TBD oder Beispieltext in committeten Dateien. Was noch nicht existiert, wird in einem Satz beschrieben.
+- Im Hauptrepository ist die Formatierung Teil der Prüfung: vor dem Commit `pnpm run format`, sonst wird der Job "Typprüfung, Lint und Tests" rot. Markdown, Workflows und Migrationen nimmt `.prettierignore` aus.
 
 ## Commits
 
@@ -59,7 +60,7 @@ Das gilt für jede Datei in jedem Repository der Organisation, und die CI prüft
 
 1. Fork anlegen oder, mit Schreibrechten, einen Branch von `main` abzweigen.
 2. Änderung umsetzen und `CHANGELOG.md` unter `## [Unreleased]` ergänzen, im passenden Abschnitt und mit einem Satz, warum. Das gehört zu jedem Pull Request in einem Repository mit CHANGELOG; `.github` und `opengewerk-website` haben keines.
-3. Pull Request eröffnen, die Vorlage ausfüllen und auf das zugehörige Issue verweisen.
+3. Pull Request eröffnen, die Vorlage ausfüllen und auf das zugehörige Issue verweisen. Soll der Pull Request ein Issue schließen, gehört unter den deutschen Text eine englische Zeile `Closes #<Nummer>`: GitHub erkennt nur die englischen Schlüsselwörter, ein „Schließt #12“ bewirkt nichts.
 4. Auf die Prüfung warten. `main` ist geschützt, direkte Pushes gibt es nicht.
 
 Große Änderungen bitte vorher als Issue oder Discussion abstimmen. Ein fertiger Pull Request, dessen Richtung nicht passt, ist für beide Seiten ärgerlich.
