@@ -19,13 +19,23 @@ Auf diesem Weg sind Meldung und Diskussion privat, bis eine Behebung vorliegt. E
 
 ## Welche Fassungen unterstützt werden
 
-Es gibt noch keine Releases. Unterstützt wird der Stand auf `main` des jeweiligen Repositorys: dort wird eine Lücke behoben, und eine Installation bekommt die Behebung mit dem nächsten Update. Sobald es Releases gibt, steht hier, welche davon noch Behebungen bekommen.
+**Die Anwendung, `opengewerk`,** erscheint in Releases mit einer Fassungsnummer (`v0.x.y`). Eine Sicherheitskorrektur bekommt nur die jeweils neueste Fassung. Das genügt, weil ein Update jede Fassung überspringen darf: die Migrationen ziehen jeden älteren Stand hoch, wer also noch auf einer alten Fassung steht, geht mit der Korrektur direkt auf die neueste. Die Regel gilt für die Reihe 0.x und wird mit 1.0 neu entschieden.
+
+Die Korrektur geht sofort nach der Behebung als neues Release von `main` hinaus, einen eigenen Zweig je Fassung gibt es nicht. Ihre Nummer folgt dem Inhalt: eine Patch-Fassung, wenn seit dem letzten Release nur Korrekturen dazugekommen sind, sonst eine neue Nebenversion, die dann auch neue Funktionen mitbringt. Eine Installation aus dem Quelltext bekommt die Behebung schon vorher, sobald sie auf `main` steht. Bis zum ersten Release gilt nur dieser zweite Weg.
+
+**Die Spezifikation, `opengewerk-api-spec`,** unterstützt ihre neueste Fassung. Eine Lücke im Sicherheitsmodell wird mit einer neuen Fassung des Vertrags behoben; bricht die Behebung bestehende Implementierungen, ist es eine neue Hauptversion, wie bei jedem Bruch des Vertrags.
+
+**Der Kanzlei-Hub und die Website** haben keine Releases. Unterstützt wird der Stand auf `main`, und die Website ist mit jedem Merge ausgeliefert.
 
 ## Was danach passiert
 
 Das Projekt wird in der Freizeit entwickelt. Die Anwendung läuft und steht vor dem ersten Pilotbetrieb, der Kanzlei-Hub ist noch ein Konzept. Es gibt keine zugesicherte Reaktionszeit. Realistisch ist eine erste Rückmeldung innerhalb von zwei Wochen. Bleibt eine Antwort länger aus, ist eine freundliche Erinnerung im selben Advisory willkommen.
 
-Ist die Lücke bestätigt und behoben, wird das Advisory veröffentlicht. Wer meldet, wird dort genannt, wenn gewünscht.
+Ist die Lücke bestätigt und behoben, wird das Advisory veröffentlicht. Es nennt die betroffenen Fassungen und die Fassung, die die Korrektur enthält; ein Advisory aus der Zeit vor dem ersten Release nennt statt einer Fassung den Commit auf `main`, mit dem die Lücke behoben wurde. Wer meldet, wird dort genannt, wenn gewünscht.
+
+## Wie Betreiber davon erfahren
+
+An drei Stellen: im veröffentlichten Advisory, auf der Release-Seite der Fassung mit der Korrektur, die mit einem Hinweis darauf beginnt, und im Kanal `#ankündigungen` des [Discord-Servers](https://discord.gg/NRrEvbQdxz). Wer eine Instanz betreibt, abonniert am besten die Releases von [opengewerk](https://github.com/opengewerk/opengewerk) auf GitHub (Watch, Custom, Releases). Dann kommt jede neue Fassung als Benachrichtigung, eine Korrektur eingeschlossen.
 
 ## Was in den Geltungsbereich fällt
 
