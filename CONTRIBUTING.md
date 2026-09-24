@@ -81,6 +81,15 @@ Die Konzepte unter `docs/konzept/` sind die verbindliche Quelle für den Funktio
 - Prüfen, ob die Änderung ein Breaking Change ist. Die Kriterien stehen in der README von `opengewerk-api-spec`.
 - Scopes, Endpunkte und Webhooks müssen zwischen Spezifikation und Konzeptdokumenten übereinstimmen.
 
+## Formulare und Grenzwerte für ein Gewerk
+
+Prüfprotokolle und andere Formulare sind Dateien, kein Code. Sie liegen im Paket ihres Gewerks unter `packages/gewerke/<gewerk>/` im Repository [`opengewerk`](https://github.com/opengewerk/opengewerk): die Definition als JSON unter `formulare/`, die Grenzwerte als Regeln mit Fundstelle unter `regeln/`, beide im `manifest.json` des Pakets eingetragen. Das erste Paket ist Elektro und PV mit dem Prüfprotokoll nach DIN VDE 0100-600. Wie eine Definition aufgebaut ist, zeigt dessen Datei, und die Feldarten beschreibt das Kapitel zur Formular-Engine in der [README](https://github.com/opengewerk/opengewerk/blob/main/README.md).
+
+- Eine gemergte Definition wird nicht mehr geändert. Wer sie verbessert, legt eine neue Datei mit der nächsten Fassung an (`<schlüssel>.v2.json`), denn ein ausgefülltes Formular wird mit der Fassung gelesen, in der es entstanden ist.
+- Ein Grenzwert steht nie im Formular, sondern als Regel mit Gültigkeitsbeginn und Fundstelle, also Norm, Ausgabe und Abschnitt. Ein Wert ohne Fundstelle wird nicht übernommen.
+- Die Tests des Pakets prüfen, was ohne Code schiefgehen kann: ein Schlüssel zweimal, eine Auswahl ohne Möglichkeiten, eine Einheit oder Regel, die es nicht gibt. `pnpm run test` im Paket genügt.
+- Grenzwerte brauchen eine fachkundige Abnahme. Wer beruflich prüft, ist dafür besonders willkommen; die offenen Fragen stehen in [#31](https://github.com/opengewerk/opengewerk/issues/31).
+
 ## Architekturentscheidungen
 
 Entscheidungen, die schwer umkehrbar sind oder mehrere Module betreffen, werden als Architecture Decision Record festgehalten, siehe `docs/adr/` im Hauptrepository. Wer eine bestehende Entscheidung umstoßen will, schreibt ein neues Record und setzt das alte auf `überholt durch`. Weicht der Code in einem Punkt ab, ohne die Entscheidung umzustoßen, bekommt das Record einen datierten Nachtrag mit Grund; umgeschrieben wird ein angenommenes Record nicht.
