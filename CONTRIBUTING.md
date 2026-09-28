@@ -10,6 +10,7 @@ Die Handwerkersoftware läuft und steht vor dem ersten Pilotbetrieb: Kunden, Obj
 | --- | --- |
 | Frage, Idee, Erfahrungsbericht, noch kein konkreter Vorschlag | Discussions des passenden Repositories |
 | Kurze Frage, Zuruf, jemanden erreichen | [Discord](https://discord.gg/NRrEvbQdxz) |
+| Austausch unter Betrieben, Erfahrungen, Vergleich mit anderer Software | [r/OpenGewerk](https://www.reddit.com/r/OpenGewerk/) auf Reddit |
 | Konkreter Fehler | Issue mit der Vorlage *Fehlerbericht* |
 | Konkreter Funktionswunsch oder Konzeptänderung | Issue mit der Vorlage *Funktionswunsch* |
 | Sicherheitslücke | **Nicht** öffentlich, siehe [SECURITY.md](SECURITY.md) |
@@ -25,6 +26,8 @@ Welches Repository das richtige ist:
 Im Zweifel reicht ein Issue im Hauptrepository, es wird dann verschoben.
 
 Der [Discord-Server](https://discord.gg/NRrEvbQdxz) ist für das Dazwischen: eine kurze Frage, ein Zuruf, jemanden erreichen. Er ersetzt die Discussions nicht, denn ein Chatverlauf ist nicht durchsuchbar. Was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue, sonst findet es in einem halben Jahr niemand wieder.
+
+Das Subreddit [r/OpenGewerk](https://www.reddit.com/r/OpenGewerk/) ist für den Austausch unter Betrieben: Erfahrungen aus dem Alltag, Vergleiche mit anderer Software, Fragen zum Selbsthosten. Auch dort gilt: was als Fehler oder Wunsch übrig bleibt, wird ein Issue. Eine Sicherheitslücke gehört weder dorthin noch in den Discord, sondern auf den Weg in der [SECURITY.md](SECURITY.md).
 
 ## Labels und Vorlagen
 

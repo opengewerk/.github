@@ -44,7 +44,7 @@ Einen Überblick, auch im Vergleich mit anderen Lösungen, gibt [opengewerk.de](
 
 Die [Beitragsregeln](https://github.com/opengewerk/.github/blob/main/CONTRIBUTING.md) und der [Verhaltenskodex](https://github.com/opengewerk/.github/blob/main/CODE_OF_CONDUCT.md) gelten für alle Repositories der Organisation. Sicherheitslücken bitte über den Weg in [SECURITY.md](https://github.com/opengewerk/.github/blob/main/SECURITY.md) melden, nicht als öffentliches Issue.
 
-Für kurze Fragen gibt es einen [Discord-Server](https://discord.gg/NRrEvbQdxz). Er ersetzt die Discussions nicht: was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue.
+Für kurze Fragen gibt es einen [Discord-Server](https://discord.gg/NRrEvbQdxz), für den Austausch unter Betrieben das Subreddit [r/OpenGewerk](https://www.reddit.com/r/OpenGewerk/). Beide ersetzen die Discussions nicht: was dort geklärt wird und für andere zählt, gehört hinterher in eine Discussion oder ein Issue.
 
 ## Branding
 
