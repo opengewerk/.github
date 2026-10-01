@@ -19,6 +19,7 @@ Die Handwerkersoftware läuft und steht vor dem ersten Pilotbetrieb: Kunden, Obj
 Welches Repository das richtige ist:
 
 - [`opengewerk`](https://github.com/opengewerk/opengewerk) für alles, was der Handwerksbetrieb benutzt.
+- [`opengewerk-haustechnik`](https://github.com/opengewerk/opengewerk-haustechnik) für alles, was der Betreiber eines Gebäudes und seine Haustechnik benutzen.
 - [`opengewerk-kanzlei`](https://github.com/opengewerk/opengewerk-kanzlei) für alles, was die Steuerberaterkanzlei benutzt.
 - [`opengewerk-api-spec`](https://github.com/opengewerk/opengewerk-api-spec) für alles, was zwischen beiden über die Leitung geht.
 - [`opengewerk-website`](https://github.com/opengewerk/opengewerk-website) für die Seite unter opengewerk.de.
@@ -31,9 +32,9 @@ Das Subreddit [r/OpenGewerk](https://www.reddit.com/r/OpenGewerk/) ist für den 
 
 ## Labels und Vorlagen
 
-Alle Repositories haben dieselben sechs Labels: *Fehler*, *Funktionswunsch*, *Dokumentation*, *Konzept*, *Gute erste Aufgabe* und *Hilfe gesucht*, mit denselben Farben und Beschreibungen. `opengewerk` hat dazu je ein Label für seine Module und Bereiche. Ein neues Repository bekommt die sechs mit `gh label clone opengewerk/opengewerk-api-spec --repo opengewerk/<neues-repository>`, danach werden die englischen Vorgaben von GitHub gelöscht.
+Alle Repositories haben dieselben sechs Labels: *Fehler*, *Funktionswunsch*, *Dokumentation*, *Konzept*, *Gute erste Aufgabe* und *Hilfe gesucht*, mit denselben Farben und Beschreibungen. `opengewerk`, `opengewerk-haustechnik` und `opengewerk-kanzlei` haben dazu je ein Label für ihre Module und Bereiche. Ein neues Repository bekommt die sechs mit `gh label clone opengewerk/opengewerk-api-spec --repo opengewerk/<neues-repository>`, danach werden die englischen Vorgaben von GitHub gelöscht.
 
-Die Vorlagen für Issues in diesem Repository unter `.github/ISSUE_TEMPLATE` gelten für jedes Repository der Organisation ohne eigene, heute für die Website und für dieses Repository selbst. Die Anwendung, der Kanzlei-Hub und die Spezifikation haben eigene.
+Die Vorlagen für Issues in diesem Repository unter `.github/ISSUE_TEMPLATE` gelten für jedes Repository der Organisation ohne eigene, heute für die Website und für dieses Repository selbst. Die Anwendung, die Haustechnik, der Kanzlei-Hub und die Spezifikation haben eigene.
 
 ## Sprache
 
@@ -99,7 +100,7 @@ Entscheidungen, die schwer umkehrbar sind oder mehrere Module betreffen, werden 
 
 ## Lizenz deiner Beiträge
 
-Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk`, `opengewerk-kanzlei` und `opengewerk-website`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht, und das ist eine Festlegung, keine Lücke: Ein CLA bräuchte das Projekt nur, um seinen eigenen Code später zusätzlich unter eine geschlossene Lizenz stellen zu können. Genau das soll es nicht geben. Siehe Leitentscheidung 9 der Feature-Gliederung.
+Mit einem Pull Request stellst du deinen Beitrag unter die Lizenz des jeweiligen Repositories: AGPL-3.0 für `opengewerk`, `opengewerk-haustechnik`, `opengewerk-kanzlei` und `opengewerk-website`, Apache-2.0 für `opengewerk-api-spec`. Ein Contributor License Agreement gibt es nicht, und das ist eine Festlegung, keine Lücke: Ein CLA bräuchte das Projekt nur, um seinen eigenen Code später zusätzlich unter eine geschlossene Lizenz stellen zu können. Genau das soll es nicht geben. Siehe Leitentscheidung 9 der Feature-Gliederung.
 
 ## Umgang miteinander
 
