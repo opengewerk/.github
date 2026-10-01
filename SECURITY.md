@@ -11,6 +11,7 @@ Danke, dass du dir die Mühe machst. Melde eine Sicherheitslücke bitte **nicht*
 Direktlinks:
 
 - [opengewerk](https://github.com/opengewerk/opengewerk/security/advisories/new)
+- [opengewerk-haustechnik](https://github.com/opengewerk/opengewerk-haustechnik/security/advisories/new)
 - [opengewerk-kanzlei](https://github.com/opengewerk/opengewerk-kanzlei/security/advisories/new)
 - [opengewerk-api-spec](https://github.com/opengewerk/opengewerk-api-spec/security/advisories/new)
 - [opengewerk-website](https://github.com/opengewerk/opengewerk-website/security/advisories/new)
@@ -25,11 +26,15 @@ Die Korrektur geht sofort nach der Behebung als neues Release von `main` hinaus,
 
 **Die Spezifikation, `opengewerk-api-spec`,** unterstützt ihre neueste Fassung. Eine Lücke im Sicherheitsmodell wird mit einer neuen Fassung des Vertrags behoben; bricht die Behebung bestehende Implementierungen, ist es eine neue Hauptversion, wie bei jedem Bruch des Vertrags.
 
+**OpenGewerk Haustechnik, `opengewerk-haustechnik`,** steht am Anfang ihres Baus und hat noch keine Releases. Unterstützt wird der Stand auf `main`. Sobald ihre erste Fassung erscheint, gilt für sie dieselbe Regel wie für die Handwerkersoftware.
+
+**Das gemeinsame Fundament.** Mandantentrennung, Anmeldung, Rechte, Abgleich und Audit-Log liegen im Repository `opengewerk` in eigenen Paketen, und die Haustechnik bindet einen festen Stand davon ein ([ADR 0010](https://github.com/opengewerk/opengewerk/blob/main/docs/adr/0010-fundament-als-pakete.md)). Eine Sicherheitskorrektur dort erscheint als Fassung der Handwerkersoftware. Jede Anwendung, die das Fundament einbindet, hebt danach ihren Stand an und veröffentlicht ihrerseits, und das Advisory nennt alle betroffenen Anwendungen. Für jede von ihnen gilt die Korrektur erst als ausgeliefert, wenn ihre eigene Fassung sie enthält.
+
 **Der Kanzlei-Hub und die Website** haben keine Releases. Unterstützt wird der Stand auf `main`, und die Website ist mit jedem Merge ausgeliefert.
 
 ## Was danach passiert
 
-Das Projekt wird in der Freizeit entwickelt. Die Anwendung läuft und steht vor dem ersten Pilotbetrieb, der Kanzlei-Hub ist noch ein Konzept. Es gibt keine zugesicherte Reaktionszeit. Realistisch ist eine erste Rückmeldung innerhalb von zwei Wochen. Bleibt eine Antwort länger aus, ist eine freundliche Erinnerung im selben Advisory willkommen.
+Das Projekt wird in der Freizeit entwickelt. Die Anwendung läuft und steht vor dem ersten Pilotbetrieb, die Haustechnik steht am Anfang ihres Baus, der Kanzlei-Hub ist noch ein Konzept. Es gibt keine zugesicherte Reaktionszeit. Realistisch ist eine erste Rückmeldung innerhalb von zwei Wochen. Bleibt eine Antwort länger aus, ist eine freundliche Erinnerung im selben Advisory willkommen.
 
 Ist die Lücke bestätigt und behoben, wird das Advisory veröffentlicht. Es nennt die betroffenen Fassungen und die Fassung, die die Korrektur enthält; ein Advisory aus der Zeit vor dem ersten Release nennt statt einer Fassung den Commit auf `main`, mit dem die Lücke behoben wurde. Wer meldet, wird dort genannt, wenn gewünscht.
 
