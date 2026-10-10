@@ -20,8 +20,9 @@ name: Security-Review
 # - Anything else (a fork, an author outside the organisation, a bot) is
 #   reviewed by reading alone on pull_request_target, whose definition comes
 #   from main: no shell, nothing of the pull request is installed or run. Such
-#   a job runs in the environment security-review-extern, where a maintainer
-#   can require an approval.
+#   a job runs in the environment security-review-extern, which each
+#   repository protects with a maintainer as required reviewer, so that no
+#   one outside spends the budget of the review.
 #
 # Claude Code signs in through workload identity federation: the job's GitHub
 # OIDC token is exchanged for a short-lived Anthropic token, and no key is
