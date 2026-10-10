@@ -179,6 +179,28 @@ jobs:
         working-directory: pr
         run: pnpm install --frozen-lockfile
 
+      - name: Abhängigkeiten des Pull Requests installieren (npm)
+        if: ${{ env.TRUSTED == 'true' && hashFiles('pr/pnpm-lock.yaml') == '' && hashFiles('pr/package-lock.json') != '' }}
+        working-directory: pr
+        run: npm ci
+
+      # The tests import the packages of the workspace from their builds, as in
+      # the CI of the repositories; without them the agent could only read. A
+      # build that fails leaves the review to say what it could not run.
+      - name: Pakete des Pull Requests bauen
+        id: build
+        if: ${{ env.TRUSTED == 'true' && hashFiles('pr/package.json') != '' }}
+        continue-on-error: true
+        working-directory: pr
+        run: |
+          if ! jq -e '.scripts.build' package.json > /dev/null; then
+            echo "Das Repository hat kein Build-Skript."
+          elif [ -f pnpm-lock.yaml ]; then
+            pnpm run build
+          else
+            npm run build
+          fi
+
       - name: Claude Code installieren
         run: npm install --global "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 
@@ -189,6 +211,7 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           POSTGRES_USER: ${{ inputs.postgres-user }}
           POSTGRES_PORT: ${{ inputs.postgres-port }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           cat > "$RUNNER_TEMP/prompt-template.md" <<'PROMPT'
           # PR-Security-Review (automatischer Lauf in GitHub Actions)
@@ -269,8 +292,11 @@ jobs:
           if trusted:
               mode = (
                   'Volles Review: Der PR kommt von einem Mitglied aus einem Branch des Repositorys. '
-                  'Du hast eine Shell und darfst die Tests und deine PoCs lokal ausführen; '
-                  '`pnpm install` ist schon gelaufen.'
+                  'Du hast eine Shell und darfst die Tests und deine PoCs lokal ausführen. '
+                  + {
+                      'success': 'Die Abhängigkeiten sind installiert und die Pakete gebaut, wie in der CI des Repositorys.',
+                      'failure': 'Die Abhängigkeiten sind installiert, der Bau der Pakete ist aber fehlgeschlagen; wiederhole ihn, wenn die Tests ihn brauchen, und nenne im Report, was nicht lief.',
+                  }.get(os.environ.get('BUILD_OUTCOME', ''), 'Die Abhängigkeiten sind installiert, soweit das Repository welche hat.')
               )
           else:
               mode = (
