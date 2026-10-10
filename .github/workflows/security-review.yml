@@ -288,6 +288,14 @@ jobs:
           rm -f "$token_file" "$token_file.next"
           echo "Claude Code endete mit Exit $code."
           tail -n 1 "$RUNNER_TEMP/claude.jsonl" | jq -r '"Kosten: \(.total_cost_usd // "?") USD, Züge: \(.num_turns // "?")"' 2> /dev/null || true
+          # Without a report the reason goes into the log: the kind of the
+          # error and its message, which name no token. The rest of the stream
+          # stays out of the public log; it holds what the agent read and ran.
+          if [ "$code" -ne 0 ]; then
+            jq -r 'select(.type == "result" or .error != null or .api_error_status != null)
+              | "Fehler: \(.subtype // .type) \(.api_error_status // "") \((.result // .error // "") | tostring | .[0:600])"' \
+              "$RUNNER_TEMP/claude.jsonl" 2> /dev/null | tail -n 5 || true
+          fi
 
       - name: Bericht prüfen
         run: |
