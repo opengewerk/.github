@@ -235,6 +235,12 @@ jobs:
                   continue
               on_main = git('merge-base', '--is-ancestor', sha, 'origin/main').returncode == 0
               lines.append(f'- Liegt auf `main`: {"ja" if on_main else "nein"}')
+              # The whole file as well: a diff alone does not show where the
+              # lines it touches take their values from.
+              whole = f'pinned-review-workflow-{sha[:12]}.yml'
+              with open(os.path.join(review, whole), 'w', encoding='utf-8') as handle:
+                  handle.write(git('show', f'{sha}:{workflow}').stdout)
+              lines.append(f'- `{workflow}` in diesem Commit, vollständig: `.security-review/{whole}`')
               if base:
                   added = git('log', '--format=%h %s', f'{base}..{sha}').stdout.strip()
                   dropped = git('log', '--format=%h %s', f'{sha}..{base}').stdout.strip()
@@ -248,8 +254,6 @@ jobs:
                   print(f'Neuer Pin {sha[:7]}: auf main {"ja" if on_main else "nein"}, '
                         f'{len(added.splitlines())} Commits seit {base[:7]}.')
               else:
-                  content = git('show', f'{sha}:{workflow}').stdout
-                  lines += ['', f'### `{workflow}` in diesem Commit', '', '```yaml', content.rstrip(), '```']
                   print(f'Neuer Pin {sha[:7]}: auf main {"ja" if on_main else "nein"}, ohne bisherigen Pin.')
 
           with open(os.path.join(review, 'pinned-review-workflow.md'), 'w', encoding='utf-8') as handle:
@@ -309,7 +313,8 @@ jobs:
              Reviews (`opengewerk/.github/.github/workflows/security-review.yml@<sha>`), steht in
              `.security-review/pinned-review-workflow.md`, was der Workflow vor dir aus dem
              öffentlichen Repository geholt hat: ob der Commit auf dessen `main` liegt, die Commits
-             dazwischen und der Diff der Workflow-Datei. Prüfe diesen Diff wie Code des PRs; ein
+             dazwischen, der Diff der Workflow-Datei und der Pfad, unter dem die ganze Datei dieses
+             Commits liegt. Prüfe den Diff im Zusammenhang der ganzen Datei wie Code des PRs; ein
              Commit, der nicht auf `main` liegt oder sich nicht holen lässt, ist ein Befund.
           2. Gib den Report als deine letzte Antwort aus, als Markdown auf Deutsch. Lege dafür keine
              Datei an; ein Werkzeug zum Schreiben hast du nicht, und gelesen wird nur innerhalb des
