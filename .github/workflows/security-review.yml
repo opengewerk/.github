@@ -304,7 +304,6 @@ jobs:
             fi
           fi
           echo "$result" > "$RUNNER_TEMP/result/result.txt"
-          echo "$TRUSTED" > "$RUNNER_TEMP/result/trusted.txt"
           echo "Ergebnis: $result"
 
       - name: Ergebnis weitergeben
@@ -336,10 +335,13 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_JOB: ${{ needs.review.result }}
+          # From the first job, which nothing of the pull request touches. The
+          # artifact comes from the job that read the pull request and only
+          # says what its report found.
+          TRUSTED: ${{ needs.mode.outputs.trusted }}
         run: |
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           result="$(cat result/result.txt 2> /dev/null || echo missing)"
-          trusted="$(cat result/trusted.txt 2> /dev/null || echo false)"
 
           set_status() {
             gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
@@ -352,7 +354,7 @@ jobs:
             exit 0
           fi
 
-          if [ "$trusted" = "true" ]; then
+          if [ "$TRUSTED" = "true" ]; then
             mode="Volles Review mit Tests und PoCs."
           else
             mode="Review nur lesend: Der PR kommt von außen, nichts daraus wurde ausgeführt."
