@@ -10,8 +10,10 @@ name: Security-Review
 # for the same reason: workflow and prompt are always of the same commit.
 #
 # Claude Code reviews the head of the pull request and gives its report as its
-# last answer. A second job, which the agent never sees, posts the report and
-# sets the commit status PR-Security-Review on that head; pull_request_target
+# last answer. A second job, which the agent never sees, posts the report as a
+# review (changes requested with findings, approved without, and for a pull
+# request from outside never more than a comment) and sets the commit status
+# PR-Security-Review on that head; pull_request_target
 # attaches the checks of its jobs to the base branch, so a status on the head
 # is the one result both triggers can give.
 #
@@ -562,7 +564,20 @@ jobs:
             printf '\n\n(Gekürzt; der volle Bericht liegt am Lauf.)\n\nREVIEW_COMPLETE\n' >> body.short.md
             mv body.short.md body.md
           fi
-          jq -n --arg sha "$SHA" --rawfile body body.md '{commit_id: $sha, event: "COMMENT", body: $body}' > review.json
+          # Like the reviewer before it: changes requested where the report
+          # found something or is unclear, approved where it found nothing.
+          # A pull request from outside is never approved by this review: a
+          # model judged text that can be written to steer it, and an approval
+          # is what such text would aim for. It gets a comment instead.
+          if [ "$result" != "clean" ]; then
+            event=REQUEST_CHANGES
+          elif [ "$TRUSTED" = "true" ]; then
+            event=APPROVE
+          else
+            event=COMMENT
+          fi
+          jq -n --arg sha "$SHA" --arg event "$event" --rawfile body body.md \
+            '{commit_id: $sha, event: $event, body: $body}' > review.json
           review_url="$(gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --input review.json --jq .html_url)"
 
           case "$result" in
@@ -570,4 +585,4 @@ jobs:
             findings) set_status failure "Befunde, siehe Review am PR." "$review_url" ;;
             *) set_status failure "Ergebnis nicht eindeutig, Review am PR lesen." "$review_url" ;;
           esac
-          echo "Review gepostet: $review_url ($result)"
+          echo "Review gepostet: $review_url ($result, $event)"
