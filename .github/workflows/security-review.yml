@@ -1,0 +1,383 @@
+name: Security-Review
+
+# The security review of a pull request, for every repository of the
+# organisation, called from .github/workflows/security-review.yml in each
+# repository on both pull_request and pull_request_target. It replaces the
+# reviewer that ran on a maintainer's machine until 10.10.2026.
+#
+# Claude Code reviews the head of the pull request and writes a report. A
+# second job, which the agent never sees, posts the report and sets the
+# commit status PR-Security-Review on that head; pull_request_target attaches
+# the checks of its jobs to the base branch, so a status on the head is the
+# one result both triggers can give.
+#
+# Two modes, each on its own trigger; the run of the other trigger ends after
+# its first job:
+# - A pull request from a branch of the repository itself, opened by a member,
+#   is reviewed in full on pull_request: the agent may run the tests and its
+#   proofs against a database of its own. The code of the pull request runs
+#   there, in the unprivileged context, never on pull_request_target.
+# - Anything else (a fork, an author outside the organisation, a bot) is
+#   reviewed by reading alone on pull_request_target, whose definition comes
+#   from main: no shell, nothing of the pull request is installed or run. Such
+#   a job runs in the environment security-review-extern, which each
+#   repository protects with a maintainer as required reviewer, so that no
+#   one outside spends the budget of the review.
+#
+# Claude Code signs in through workload identity federation: the job's GitHub
+# OIDC token is exchanged for a short-lived Anthropic token, and no key is
+# stored anywhere. The federation rule in the Claude Console accepts tokens of
+# this workflow on main only (claim job_workflow_ref). The identifiers it
+# needs are organisation variables, not secrets.
+
+on:
+  workflow_call:
+    inputs:
+      postgres-user:
+        description: User, password and name prefix of the test database (as in docker/compose.test.yaml); empty for a repository without one.
+        type: string
+        default: ''
+      postgres-port:
+        description: Port the tests of the repository expect the test database on.
+        type: number
+        default: 5432
+
+permissions: {}
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.296
+  STATUS_CONTEXT: PR-Security-Review
+
+jobs:
+  mode:
+    name: Art des Reviews
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    outputs:
+      trusted: ${{ steps.mode.outputs.trusted }}
+      handles: ${{ steps.mode.outputs.handles }}
+    steps:
+      - name: Mitglied oder von außen
+        id: mode
+        env:
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          trusted=false
+          if [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ] && [ "$AUTHOR_TYPE" = "User" ]; then
+            case "$ASSOCIATION" in
+              OWNER|MEMBER|COLLABORATOR) trusted=true ;;
+            esac
+          fi
+          handles=false
+          if [ "$trusted" = "true" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            handles=true
+          elif [ "$trusted" = "false" ] && [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
+            handles=true
+          fi
+          echo "trusted=$trusted" >> "$GITHUB_OUTPUT"
+          echo "handles=$handles" >> "$GITHUB_OUTPUT"
+          if [ "$handles" = "false" ]; then
+            echo "Diesen PR prüft der Lauf des anderen Auslösers."
+          elif [ "$trusted" = "true" ]; then
+            echo "Volles Review: PR aus dem Repository, Autor $ASSOCIATION."
+          else
+            echo "Review nur lesend: PR aus $HEAD_REPO, Autor $ASSOCIATION ($AUTHOR_TYPE)."
+          fi
+
+      - name: Status auf "läuft" setzen
+        if: ${{ steps.mode.outputs.handles == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state=pending -f context="$STATUS_CONTEXT" \
+            -f description="Security-Review läuft." \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+
+  review:
+    name: Review
+    needs: mode
+    if: ${{ needs.mode.outputs.handles == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: ${{ needs.mode.outputs.trusted == 'true' && 'security-review' || 'security-review-extern' }}
+    permissions:
+      contents: read
+      id-token: write
+    # The test database only for a full review, and only where the repository
+    # has one: an empty image starts no service.
+    services:
+      postgres:
+        image: ${{ needs.mode.outputs.trusted == 'true' && inputs.postgres-user != '' && 'postgres:18-alpine' || '' }}
+        env:
+          POSTGRES_USER: ${{ inputs.postgres-user }}
+          POSTGRES_PASSWORD: ${{ inputs.postgres-user }}
+          POSTGRES_DB: ${{ inputs.postgres-user }}_test
+        ports:
+          - ${{ inputs.postgres-port }}:5432
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TRUSTED: ${{ needs.mode.outputs.trusted }}
+      ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+      ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+      ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+      ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+      REVIEW_MODEL: ${{ vars.SECURITY_REVIEW_MODEL || 'claude-opus-5-5' }}
+    steps:
+      - name: Prompt des Reviews auschecken
+        uses: actions/checkout@v7
+        with:
+          repository: opengewerk/.github
+          ref: main
+          path: reviewer
+          persist-credentials: false
+          sparse-checkout: security-review
+
+      # Without the token in the git configuration: the agent works in this
+      # folder and must find no credential there.
+      - name: Head des Pull Requests auschecken
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: ${{ needs.mode.outputs.trusted == 'true' }}
+
+      - name: Diff gegen die Basis festhalten
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          cd pr
+          git fetch --quiet --no-tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "refs/heads/$BASE_REF"
+          base_sha="$(git merge-base FETCH_HEAD HEAD)"
+          rm -rf .security-review
+          mkdir .security-review
+          git diff "$base_sha" HEAD > .security-review/diff.patch
+          git diff --name-status "$base_sha" HEAD > .security-review/changed-files.txt
+          echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
+          echo "Geänderte Dateien: $(wc -l < .security-review/changed-files.txt)"
+
+      - name: pnpm über Corepack bereitstellen
+        if: ${{ env.TRUSTED == 'true' && hashFiles('pr/pnpm-lock.yaml') != '' }}
+        working-directory: pr
+        run: corepack enable
+
+      - name: Node einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Abhängigkeiten des Pull Requests installieren
+        if: ${{ env.TRUSTED == 'true' && hashFiles('pr/pnpm-lock.yaml') != '' }}
+        working-directory: pr
+        run: pnpm install --frozen-lockfile
+
+      - name: Claude Code installieren
+        run: npm install --global "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+
+      - name: Auftrag zusammenstellen
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          POSTGRES_USER: ${{ inputs.postgres-user }}
+          POSTGRES_PORT: ${{ inputs.postgres-port }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+
+          trusted = os.environ['TRUSTED'] == 'true'
+          user = os.environ['POSTGRES_USER']
+          report = os.path.join(os.environ['GITHUB_WORKSPACE'], 'pr', 'REVIEW-REPORT.md')
+
+          if trusted:
+              mode = (
+                  'Volles Review: Der PR kommt von einem Mitglied aus einem Branch des Repositorys. '
+                  'Du hast eine Shell und darfst die Tests und deine PoCs lokal ausführen; '
+                  '`pnpm install` ist schon gelaufen.'
+              )
+          else:
+              mode = (
+                  'Review nur lesend: Der PR kommt von außen (Fork, Autor außerhalb der Organisation '
+                  'oder ein Bot). Du hast keine Shell, nichts aus dem PR wird installiert oder '
+                  'ausgeführt. Prüfe lesend; was sich nur dynamisch belegen ließe, bleibt '
+                  '`open_proof_gap` mit Confidence höchstens medium.'
+              )
+
+          if trusted and user:
+              port = os.environ['POSTGRES_PORT']
+              database = (
+                  f'Testdatenbank: `DATABASE_URL` ist auf `postgres://{user}:{user}@127.0.0.1:{port}/{user}_test` '
+                  'gesetzt, eine Datenbank nur für diesen Lauf. Niemals gegen Produktion testen.'
+              )
+          elif trusted:
+              database = 'Für dieses Repository gibt es keine Testdatenbank. Niemals gegen Produktion testen.'
+          else:
+              database = ''
+
+          with open('reviewer/security-review/prompt.md', encoding='utf-8') as handle:
+              prompt = handle.read()
+          for name, value in {
+              'REPO': os.environ['GITHUB_REPOSITORY'],
+              'PR': os.environ['PR_NUMBER'],
+              'SHA': os.environ['SHA'],
+              'BASE_REF': os.environ['BASE_REF'],
+              'BASE_SHA': os.environ['BASE_SHA'],
+              'REPORT_FILE': report,
+              'MODE_NOTE': mode,
+              'DATABASE_NOTE': database,
+          }.items():
+              prompt = prompt.replace('{{' + name + '}}', value)
+
+          with open(os.path.join(os.environ['RUNNER_TEMP'], 'prompt.md'), 'w', encoding='utf-8') as handle:
+              handle.write(prompt)
+          PYTHON
+
+      # The GitHub OIDC token lives about five minutes and is single use, so a
+      # loop in the background writes a fresh one every four; Claude Code reads
+      # the file again whenever it renews the Anthropic token. The agent and
+      # what it starts get neither the token nor the means to request one.
+      # --safe-mode starts Claude Code without hooks, skills, MCP servers or
+      # CLAUDE.md of the checkout; dontAsk turns down every tool not allowed
+      # below instead of asking.
+      - name: Review mit Claude Code
+        id: claude
+        env:
+          DATABASE_URL: ${{ env.TRUSTED == 'true' && inputs.postgres-user != '' && format('postgres://{0}:{0}@127.0.0.1:{1}/{0}_test', inputs.postgres-user, inputs.postgres-port) || '' }}
+        run: |
+          token_file="$RUNNER_TEMP/anthropic-identity-token"
+          fetch_token() {
+            curl -sS --fail -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://api.anthropic.com" \
+              | jq -r .value > "$token_file.next" && mv "$token_file.next" "$token_file"
+          }
+          fetch_token
+          ( while sleep 240; do fetch_token; done ) &
+          refresher=$!
+
+          allowed=(Read Grep Glob Write)
+          if [ "$TRUSTED" = "true" ]; then
+            allowed+=(Bash)
+          fi
+
+          cd pr
+          set +e
+          env -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+            ANTHROPIC_IDENTITY_TOKEN_FILE="$token_file" \
+            claude -p --safe-mode --strict-mcp-config --no-session-persistence \
+              --model "$REVIEW_MODEL" --permission-mode dontAsk \
+              --output-format stream-json --verbose \
+              --allowedTools "${allowed[@]}" \
+              --disallowedTools WebFetch WebSearch 'Bash(gh:*)' 'Bash(git push:*)' 'Bash(git remote:*)' \
+                'Bash(curl:*)' 'Bash(wget:*)' 'Bash(docker:*)' \
+              < "$RUNNER_TEMP/prompt.md" > "$RUNNER_TEMP/claude.jsonl"
+          code=$?
+          set -e
+          kill "$refresher" 2> /dev/null || true
+          rm -f "$token_file" "$token_file.next"
+          echo "Claude Code endete mit Exit $code."
+          tail -n 1 "$RUNNER_TEMP/claude.jsonl" | jq -r '"Kosten: \(.total_cost_usd // "?") USD, Züge: \(.num_turns // "?")"' 2> /dev/null || true
+
+      - name: Bericht prüfen
+        run: |
+          mkdir -p "$RUNNER_TEMP/result"
+          report=pr/REVIEW-REPORT.md
+          result=missing
+          if [ -f "$report" ] && grep -q 'REVIEW_COMPLETE' "$report" && [ "$(wc -c < "$report")" -ge 500 ]; then
+            cp "$report" "$RUNNER_TEMP/result/report.md"
+            if grep -Eq '^\s*REVIEW_RESULT:\s*clean\s*$' "$report"; then
+              result=clean
+            elif grep -Eq '^\s*REVIEW_RESULT:\s*findings\s*$' "$report"; then
+              result=findings
+            else
+              result=unclear
+            fi
+          fi
+          echo "$result" > "$RUNNER_TEMP/result/result.txt"
+          echo "Ergebnis: $result"
+
+      - name: Ergebnis weitergeben
+        uses: actions/upload-artifact@v7
+        with:
+          name: security-review
+          path: ${{ runner.temp }}/result
+          retention-days: 7
+
+  publish:
+    name: Ergebnis veröffentlichen
+    needs: [mode, review]
+    if: ${{ !cancelled() && needs.mode.outputs.handles == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Ergebnis holen
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: security-review
+          path: result
+
+      - name: Review posten und Status setzen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_JOB: ${{ needs.review.result }}
+          # From the first job, which nothing of the pull request touches. The
+          # artifact comes from the job that read the pull request and only
+          # says what its report found.
+          TRUSTED: ${{ needs.mode.outputs.trusted }}
+        run: |
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          result="$(cat result/result.txt 2> /dev/null || echo missing)"
+
+          set_status() {
+            gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+              -f state="$1" -f context="$STATUS_CONTEXT" -f description="$2" -f target_url="$3" > /dev/null
+          }
+
+          if [ "$result" = "missing" ]; then
+            set_status error "Review ohne Bericht (Job: $REVIEW_JOB), siehe Lauf." "$run_url"
+            echo "Kein Bericht, Status error gesetzt."
+            exit 0
+          fi
+
+          if [ "$TRUSTED" = "true" ]; then
+            mode="Volles Review mit Tests und PoCs."
+          else
+            mode="Review nur lesend: Der PR kommt von außen, nichts daraus wurde ausgeführt."
+          fi
+          {
+            echo "<!-- pr-auto-review repo=$GITHUB_REPOSITORY pr=$PR_NUMBER sha=$SHA -->"
+            echo
+            echo "> $mode [Lauf]($run_url)"
+            echo
+            cat result/report.md
+          } > body.md
+          if [ "$(wc -c < body.md)" -gt 65000 ]; then
+            head -c 64000 body.md > body.short.md
+            printf '\n\n(Gekürzt; der volle Bericht liegt am Lauf.)\n\nREVIEW_COMPLETE\n' >> body.short.md
+            mv body.short.md body.md
+          fi
+          jq -n --arg sha "$SHA" --rawfile body body.md '{commit_id: $sha, event: "COMMENT", body: $body}' > review.json
+          review_url="$(gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --input review.json --jq .html_url)"
+
+          case "$result" in
+            clean) set_status success "Keine Befunde." "$review_url" ;;
+            findings) set_status failure "Befunde, siehe Review am PR." "$review_url" ;;
+            *) set_status failure "Ergebnis nicht eindeutig, Review am PR lesen." "$review_url" ;;
+          esac
+          echo "Review gepostet: $review_url ($result)"

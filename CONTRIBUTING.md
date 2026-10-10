@@ -67,6 +67,8 @@ Das gilt für jede Datei in jedem Repository der Organisation, und die CI prüft
 3. Pull Request eröffnen, die Vorlage ausfüllen und auf das zugehörige Issue verweisen. Soll der Pull Request ein Issue schließen, gehört unter den deutschen Text eine englische Zeile `Closes #<Nummer>`: GitHub erkennt nur die englischen Schlüsselwörter, ein „Schließt #12“ bewirkt nichts.
 4. Auf die Prüfung warten. `main` ist geschützt, direkte Pushes gibt es nicht.
 
+Jeder Pull Request bekommt dazu ein automatisches Security-Review, das als Kommentar am Pull Request und als Status `PR-Security-Review` erscheint. Geprüft wird jeweils der neueste Commit. Kommt der Pull Request aus einem Fork oder von außerhalb der Organisation, liest das Review den Code nur und führt nichts davon aus, und es startet erst, wenn ein Maintainer es freigibt. Das Review ist ein Hinweis, keine Freigabe: gemergt wird nach dem Blick eines Menschen.
+
 Große Änderungen bitte vorher als Issue oder Discussion abstimmen. Ein fertiger Pull Request, dessen Richtung nicht passt, ist für beide Seiten ärgerlich.
 
 ## Änderungen an den Konzeptdokumenten
