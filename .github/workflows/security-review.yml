@@ -312,8 +312,11 @@ jobs:
       # itself starts without the variables that request a token, and its
       # shell, where there is one, in the sandbox described above: the
       # sandbox fails closed, keeps its own process namespace
-      # (CLAUDE_CODE_SUBPROCESS_ENV_SCRUB), removes the named variables and
-      # denies reading the token file. --safe-mode and --setting-sources user
+      # (CLAUDE_CODE_SUBPROCESS_ENV_SCRUB), removes the named variables,
+      # denies reading the token file and denies writing where a later step
+      # would pick something up: the files behind GITHUB_ENV and GITHUB_PATH
+      # in the runner's temp directory, the code of the actions, the tool
+      # cache and the home directory. --safe-mode and --setting-sources user
       # load nothing of the checkout; dontAsk turns down every tool not
       # allowed instead of asking.
       - name: Review mit Claude Code
@@ -332,14 +335,17 @@ jobs:
           mkdir -p "$cache"
           if [ "$TRUSTED" = "true" ]; then
             allowed=(Read Grep Glob Bash)
-            settings="$(jq -n --arg temp "$RUNNER_TEMP" --arg home "$HOME" '{
+            settings="$(jq -n --arg temp "$RUNNER_TEMP" --arg home "$HOME" --arg work "$(dirname "$RUNNER_TEMP")" '{
               permissions: {blockReadsOutsideWorkingDirectories: true},
               sandbox: {
                 enabled: true,
                 failIfUnavailable: true,
                 allowUnsandboxedCommands: false,
                 network: {allowedDomains: ["registry.npmjs.org:443"], strictAllowlist: true},
-                filesystem: {denyRead: [$temp, ($home + "/.claude"), ($home + "/.config"), ($home + "/.npmrc")]},
+                filesystem: {
+                  denyRead: [$temp, ($home + "/.claude"), ($home + "/.config"), ($home + "/.npmrc")],
+                  denyWrite: [$temp, ($work + "/_actions"), ($work + "/_tool"), $home]
+                },
                 credentials: {envVars: [
                   {name: "ACTIONS_ID_TOKEN_REQUEST_TOKEN", mode: "deny"},
                   {name: "ACTIONS_ID_TOKEN_REQUEST_URL", mode: "deny"},
