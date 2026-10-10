@@ -315,8 +315,9 @@ jobs:
       # (CLAUDE_CODE_SUBPROCESS_ENV_SCRUB), removes the named variables,
       # denies reading the token file and denies writing where a later step
       # would pick something up: the files behind GITHUB_ENV and GITHUB_PATH
-      # in the runner's temp directory, the code of the actions, the tool
-      # cache and the home directory. --safe-mode and --setting-sources user
+      # in the runner's temp directory, the code of the actions and the tool
+      # cache. Writing is limited to the checkout and a temp directory of the
+      # sandbox anyway; these are named so that it stays so. --safe-mode and --setting-sources user
       # load nothing of the checkout; dontAsk turns down every tool not
       # allowed instead of asking.
       - name: Review mit Claude Code
@@ -335,7 +336,16 @@ jobs:
           mkdir -p "$cache"
           if [ "$TRUSTED" = "true" ]; then
             allowed=(Read Grep Glob Bash)
-            settings="$(jq -n --arg temp "$RUNNER_TEMP" --arg home "$HOME" --arg work "$(dirname "$RUNNER_TEMP")" '{
+            # Only what exists: bwrap mounts every entry and stops at a path it
+            # cannot find. Not the home directory, which holds the workspace.
+            deny_write=()
+            for path in "$RUNNER_TEMP" "$(dirname "$RUNNER_TEMP")/_actions" "$(dirname "$RUNNER_TEMP")/_tool"; do
+              if [ -e "$path" ]; then
+                deny_write+=("$path")
+              fi
+            done
+            denywrite="$(jq -n '$ARGS.positional' --args "${deny_write[@]}")"
+            settings="$(jq -n --arg temp "$RUNNER_TEMP" --arg home "$HOME" --argjson denywrite "$denywrite" '{
               permissions: {blockReadsOutsideWorkingDirectories: true},
               sandbox: {
                 enabled: true,
@@ -344,7 +354,7 @@ jobs:
                 network: {allowedDomains: ["registry.npmjs.org:443"], strictAllowlist: true},
                 filesystem: {
                   denyRead: [$temp, ($home + "/.claude"), ($home + "/.config"), ($home + "/.npmrc")],
-                  denyWrite: [$temp, ($work + "/_actions"), ($work + "/_tool"), $home]
+                  denyWrite: $denywrite
                 },
                 credentials: {envVars: [
                   {name: "ACTIONS_ID_TOKEN_REQUEST_TOKEN", mode: "deny"},
