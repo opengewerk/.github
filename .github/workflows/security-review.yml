@@ -22,9 +22,11 @@ name: Security-Review
 # - A pull request from a branch of the repository itself, opened by a member,
 #   is reviewed on pull_request with a shell. The shell runs in the sandbox of
 #   Claude Code: a process namespace of its own, without the variables that
-#   request an identity token, without the token file, without sudo, writing
-#   only in the checkout and reaching nothing but the npm registry. Nothing
-#   of the pull request runs outside it in this job.
+#   request an identity token, without the token file, without sudo and
+#   Docker, writing only in the checkout and reaching nothing but the npm
+#   registry. Nothing of the pull request runs outside it in this job, and
+#   the checkout, the one place the agent could write, is gone before the
+#   job runs anything in it again.
 # - Anything else (a fork, an author outside the organisation, a bot) is
 #   reviewed by reading alone on pull_request_target, whose definition comes
 #   from main: no shell, nothing of the pull request is installed or run. Such
@@ -272,6 +274,12 @@ jobs:
       # 24.04 user namespaces that AppArmor otherwise refuses an unprivileged
       # process. Done with sudo before anything of the pull request exists
       # beyond its files.
+      #
+      # Allowing them opens the kernel to every process of the job through
+      # user namespaces again: a flaw there leads to root, and root to the
+      # token in the memory of the runner. That risk is carried knowingly, for
+      # pull requests of members only; one from outside gets no shell, and
+      # this step does not run for it.
       - name: Sandbox vorbereiten
         if: ${{ env.TRUSTED == 'true' }}
         run: |
@@ -280,16 +288,24 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       # A process of the runner user could otherwise become root and read the
-      # memory of the runner, the identity token among it. From here on there
-      # is no way back to root in this job.
-      - name: sudo abschalten
+      # memory of the runner, the identity token among it. Docker is the
+      # second way there: the runner user is in its group, and a container
+      # with the root of the host mounted is root as well. The daemon stops
+      # first, while sudo still can stop it. From here on there is no way back
+      # to root in this job, and both are checked, not assumed.
+      - name: sudo und Docker abschalten
         run: |
+          sudo systemctl stop docker.socket docker.service containerd.service || true
           sudo find /etc/sudoers.d -type f -exec grep -l runner {} + | xargs -r sudo rm -f
           if sudo -n true 2> /dev/null; then
             echo "sudo ist noch möglich, das Review läuft so nicht."
             exit 1
           fi
-          echo "sudo ist abgeschaltet."
+          if docker info > /dev/null 2>&1; then
+            echo "Docker antwortet noch, das Review läuft so nicht."
+            exit 1
+          fi
+          echo "sudo und Docker sind abgeschaltet."
 
       - name: Auftrag zusammenstellen
         env:
@@ -557,6 +573,16 @@ jobs:
               "$RUNNER_TEMP/claude.jsonl" 2> /dev/null | tail -n 5 || true
           fi
 
+      # The agent may have written in the checkout, its .git among it. What
+      # runs there after it would run outside the sandbox with the environment
+      # of the job: the post step of actions/checkout calls git in it, git
+      # submodule foreach among it, and a configuration written for that would
+      # run. Nothing after the agent needs the checkout, so it goes, whatever
+      # the agent did or how its step ended.
+      - name: Checkout entfernen
+        if: ${{ always() }}
+        run: rm -rf "$GITHUB_WORKSPACE/pr"
+
       # The report is the last answer of the agent. The block of private
       # findings comes out of it here and does not go into the artifact,
       # which in a public repository anyone may download.
@@ -732,7 +758,14 @@ jobs:
           fi
           jq -n --arg sha "$SHA" --arg event "$event" --rawfile body body.md \
             '{commit_id: $sha, event: $event, body: $body}' > review.json
-          review_url="$(gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --input review.json --jq .html_url)"
+          # Refused (the setting that lets Actions approve is off, the body too
+          # long, the API down), the status says so instead of staying on
+          # "läuft" for good: the step would stop here before setting it.
+          if ! review_url="$(gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --input review.json --jq .html_url)"; then
+            set_status error "Review ließ sich am PR nicht ablegen ($event), siehe Lauf." "$run_url"
+            echo "Review ließ sich nicht posten, Status error gesetzt."
+            exit 1
+          fi
 
           case "$result" in
             clean) set_status success "Keine Befunde." "$review_url" ;;
