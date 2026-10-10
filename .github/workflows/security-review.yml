@@ -46,6 +46,10 @@ name: Security-Review
 # jobs of this file only (claim job_workflow_ref), in the organisation, on a
 # pull request and in one of the two environments of the review. The
 # identifiers it needs are organisation variables, not secrets.
+#
+# A second account with a federation rule of the same kind stands behind the
+# first (variables ANTHROPIC_FALLBACK_*): when the first has no credit left,
+# the review runs once more with the second. Nothing else makes it switch.
 
 on:
   workflow_call:
@@ -127,6 +131,12 @@ jobs:
       ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
       ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
       ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+      # A second account, used only when the first has no credit left. Empty
+      # where none is set up.
+      FALLBACK_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FALLBACK_FEDERATION_RULE_ID }}
+      FALLBACK_ORGANIZATION_ID: ${{ vars.ANTHROPIC_FALLBACK_ORGANIZATION_ID }}
+      FALLBACK_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_FALLBACK_SERVICE_ACCOUNT_ID }}
+      FALLBACK_WORKSPACE_ID: ${{ vars.ANTHROPIC_FALLBACK_WORKSPACE_ID }}
       REVIEW_MODEL: ${{ vars.SECURITY_REVIEW_MODEL || 'claude-opus-5-5' }}
     steps:
       # Without the token in the git configuration: the agent works in this
@@ -372,23 +382,66 @@ jobs:
             settings='{"permissions": {"blockReadsOutsideWorkingDirectories": true}}'
           fi
 
+          # Arguments are NAME=VALUE pairs for the environment of this run.
+          run_review() {
+            env -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+              ANTHROPIC_IDENTITY_TOKEN_FILE="$token_file" \
+              CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
+              COREPACK_HOME="$cache/corepack" \
+              npm_config_cache="$cache/npm" \
+              npm_config_store_dir="$cache/pnpm-store" \
+              XDG_CACHE_HOME="$cache/xdg" \
+              "$@" \
+              claude -p --safe-mode --setting-sources user --strict-mcp-config --no-session-persistence \
+                --settings "$settings" \
+                --model "$REVIEW_MODEL" --permission-mode dontAsk \
+                --output-format stream-json --verbose \
+                --allowedTools "${allowed[@]}" \
+                --disallowedTools WebFetch WebSearch Write Edit NotebookEdit \
+                < "$RUNNER_TEMP/prompt.md" > "$RUNNER_TEMP/claude.jsonl"
+          }
+          # The run ended without an answer because the account has no credit
+          # left: Claude Code marks that error billing_error ("Credit balance
+          # is too low"); a spend limit of the workspace comes as an API error
+          # of its own. Only error events count, never text the agent wrote.
+          out_of_credit() {
+            jq -nR -e '[inputs | fromjson?] as $events
+              | ([$events[] | select(.type == "result")] | last) as $result
+              | ($result == null or $result.is_error == true or $result.subtype != "success")
+                and any($events[];
+                  .error == "billing_error"
+                  or (.type == "result" and .is_error == true
+                      and ((.result // "") | tostring
+                        | test("credit balance is too low|specified API usage limits"; "i"))))' \
+              "$RUNNER_TEMP/claude.jsonl" > /dev/null 2>&1
+          }
+
           cd pr
           set +e
-          env -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
-            ANTHROPIC_IDENTITY_TOKEN_FILE="$token_file" \
-            CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
-            COREPACK_HOME="$cache/corepack" \
-            npm_config_cache="$cache/npm" \
-            npm_config_store_dir="$cache/pnpm-store" \
-            XDG_CACHE_HOME="$cache/xdg" \
-            claude -p --safe-mode --setting-sources user --strict-mcp-config --no-session-persistence \
-              --settings "$settings" \
-              --model "$REVIEW_MODEL" --permission-mode dontAsk \
-              --output-format stream-json --verbose \
-              --allowedTools "${allowed[@]}" \
-              --disallowedTools WebFetch WebSearch Write Edit NotebookEdit \
-              < "$RUNNER_TEMP/prompt.md" > "$RUNNER_TEMP/claude.jsonl"
+          run_review
           code=$?
+          if out_of_credit; then
+            if [ -n "$FALLBACK_FEDERATION_RULE_ID" ] && [ -n "$FALLBACK_ORGANIZATION_ID" ] \
+              && [ -n "$FALLBACK_SERVICE_ACCOUNT_ID" ] && [ -n "$FALLBACK_WORKSPACE_ID" ]; then
+              echo "Das erste Konto hat kein Guthaben mehr, das Review läuft mit dem zweiten."
+              # The token of the first run may be spent already; the second
+              # gets a fresh one and a configuration directory of its own,
+              # so that nothing of the first account carries over.
+              fetch_token
+              run_review \
+                ANTHROPIC_FEDERATION_RULE_ID="$FALLBACK_FEDERATION_RULE_ID" \
+                ANTHROPIC_ORGANIZATION_ID="$FALLBACK_ORGANIZATION_ID" \
+                ANTHROPIC_SERVICE_ACCOUNT_ID="$FALLBACK_SERVICE_ACCOUNT_ID" \
+                ANTHROPIC_WORKSPACE_ID="$FALLBACK_WORKSPACE_ID" \
+                CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude-fallback"
+              code=$?
+              if out_of_credit; then
+                echo "Auch das zweite Konto hat kein Guthaben mehr."
+              fi
+            else
+              echo "Das erste Konto hat kein Guthaben mehr, und ein zweites ist nicht eingerichtet."
+            fi
+          fi
           set -e
           kill "$refresher" 2> /dev/null || true
           rm -f "$token_file" "$token_file.next"
