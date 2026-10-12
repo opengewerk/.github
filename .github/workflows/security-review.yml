@@ -26,7 +26,11 @@ name: Security-Review
 #   Docker, writing only in the checkout and reaching nothing but the npm
 #   registry. Nothing of the pull request runs outside it in this job, and
 #   the checkout, the one place the agent could write, is gone before the
-#   job runs anything in it again.
+#   job runs anything in it again. Where the calling repository names its
+#   test database (input database), the agent starts a PostgreSQL of its own
+#   inside that sandbox, for the length of one command; none runs beside it.
+#   The organisation variable SECURITY_REVIEW_DATABASE, set to "aus",
+#   switches that off for every repository without a pull request.
 # - Anything else (a fork, an author outside the organisation, a bot) is
 #   reviewed by reading alone on pull_request_target, whose definition comes
 #   from main: no shell, nothing of the pull request is installed or run. Such
@@ -55,11 +59,23 @@ name: Security-Review
 
 on:
   workflow_call:
+    inputs:
+      # The test database of the calling repository, as its tests expect it.
+      # Without it the review has no database.
+      database:
+        description: >-
+          Testdatenbank für das Review in der Sandbox, als
+          postgres://Rolle:Passwort@127.0.0.1:Port/Name. Leer heißt ohne Datenbank.
+        type: string
+        default: ''
 
 permissions: {}
 
 env:
   CLAUDE_CODE_VERSION: 2.1.296
+  POSTGRES_VERSION: 18
+  # The signing key of apt.postgresql.org.
+  POSTGRES_KEY: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
   STATUS_CONTEXT: PR-Security-Review
 
 jobs:
@@ -270,6 +286,14 @@ jobs:
       - name: Claude Code installieren
         run: npm install --global "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 
+      # pnpm on the path, as in the CI of the repositories: turbo looks for it
+      # there and finds none behind `corepack pnpm`. Only the shims of the Node
+      # distribution are written here. The version a repository names is
+      # fetched by the first call of the agent, inside the sandbox.
+      - name: pnpm über Corepack bereitstellen
+        if: ${{ env.TRUSTED == 'true' }}
+        run: corepack enable
+
       # The sandbox of Claude Code needs bubblewrap and socat, and on Ubuntu
       # 24.04 user namespaces that AppArmor otherwise refuses an unprivileged
       # process. Done with sudo before anything of the pull request exists
@@ -287,15 +311,226 @@ jobs:
           sudo apt-get install -y -qq bubblewrap socat > /dev/null
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # In the checkout itself nothing installs: with
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB the sandbox keeps package.json, the
+      # lockfiles, node_modules/.bin, scripts and .github of the working
+      # directory read-only, so that no later step runs what the agent wrote
+      # there. That stays as it is. For tests the agent works in a copy of the
+      # checkout under .security-review/cache, which the script written here
+      # makes on its first call, inside the sandbox, and which goes with the
+      # checkout. The folder of the scripts is put on the path of the agent
+      # below; the sandbox lets nothing write into a folder on the path.
+      - name: Arbeitskopie für Tests vorbereiten
+        if: ${{ env.TRUSTED == 'true' }}
+        run: |
+          mkdir -p pr/.security-review/bin pr/.security-review/cache
+          # Not searched along with the checkout: the copy would double every hit.
+          echo '*' > pr/.security-review/cache/.ignore
+          cat > pr/.security-review/bin/review-workspace <<'SCRIPT'
+          #!/usr/bin/env bash
+          # Written by the workflow of the review, not part of the pull request.
+          #
+          # Prints the path of a copy of the checkout to install, build and test in.
+          # In the checkout itself the sandbox keeps package.json, the lockfiles,
+          # node_modules/.bin, scripts and .github read-only. The copy holds what git
+          # tracks, is made on the first call and lies under .security-review/cache,
+          # which goes with the checkout when the agent has ended.
+          set -euo pipefail
+
+          here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          review="$(dirname "$here")"
+          checkout="$(dirname "$review")"
+          work="$review/cache/work"
+
+          mkdir -p "$review/cache"
+          exec 8> "$review/cache/work.lock"
+          flock --wait 600 8
+          if [ ! -f "$review/cache/work.copied" ]; then
+            rm -rf "$work"
+            mkdir -p "$work"
+            # What git knows as the content of the checkout, its submodules included:
+            # over names it protects the sandbox lays devices that cannot be copied,
+            # and what an installation in the checkout left behind is not wanted.
+            git -C "$checkout" ls-files -z --recurse-submodules \
+              | tar -C "$checkout" --null --no-recursion -T - -cf - | tar -C "$work" -xf -
+            touch "$review/cache/work.copied"
+          fi
+          echo "$work"
+          SCRIPT
+          chmod +x pr/.security-review/bin/review-workspace
+
+      # A database for the review, where the calling repository names one and
+      # the organisation has not switched it off. Only the programs come from
+      # here, with sudo and before anything of the pull request runs: no
+      # cluster and no service. The server is started by the agent, inside the
+      # sandbox, through the script written here: on the loopback of the
+      # sandbox, with its data in the checkout, for the length of one command.
+      # A server beside the sandbox, which code of the pull request reaches as
+      # its superuser, would be a way out of it (COPY ... FROM PROGRAM).
+      #
+      # The address comes from the calling workflow, on pull_request the one
+      # of the pull request: it is matched against a pattern and reaches no
+      # command line. Script and settings lie in the checkout and only ever
+      # run inside the sandbox. Whatever fails here leaves the review without
+      # a database, as it was before, and never without a review.
+      - name: Datenbank für die Sandbox bereitstellen
+        if: ${{ env.TRUSTED == 'true' && inputs.database != '' && vars.SECURITY_REVIEW_DATABASE != 'aus' }}
+        continue-on-error: true
+        env:
+          DATABASE: ${{ inputs.database }}
+        run: |
+          pattern='^postgres(ql)?://([a-z_][a-z0-9_]{0,62}):([A-Za-z0-9_.-]{1,64})@127\.0\.0\.1:([1-9][0-9]{3,4})/([a-z_][a-z0-9_]{0,62})$'
+          if [[ ! "$DATABASE" =~ $pattern ]] || [ "${BASH_REMATCH[4]}" -lt 1024 ] || [ "${BASH_REMATCH[4]}" -gt 65535 ]; then
+            echo "::error::Die Datenbank im Aufruf des Reviews muss postgres://Rolle:Passwort@127.0.0.1:Port/Name lauten. Das Review läuft ohne Datenbank."
+            exit 1
+          fi
+          user="${BASH_REMATCH[2]}"
+          password="${BASH_REMATCH[3]}"
+          port="${BASH_REMATCH[4]}"
+          name="${BASH_REMATCH[5]}"
+
+          # The package source of PostgreSQL: the image of the runner brings an
+          # older version than the applications need. Its key is checked
+          # against the fingerprint above, wherever it came from.
+          key=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          if [ ! -s "$key" ]; then
+            sudo install -d "$(dirname "$key")"
+            sudo curl -sS --fail --location -o "$key" https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          fi
+          fingerprint="$(gpg --show-keys --with-colons "$key" 2> /dev/null | awk -F: '$1 == "fpr" && !seen++ { print $10 }')"
+          if [ "$fingerprint" != "$POSTGRES_KEY" ]; then
+            echo "::error::Der Schlüssel der Paketquelle von PostgreSQL ist nicht der erwartete. Das Review läuft ohne Datenbank."
+            exit 1
+          fi
+          codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+          sudo rm -f /etc/apt/sources.list.d/pgdg.sources
+          echo "deb [signed-by=$key] https://apt.postgresql.org/pub/repos/apt $codename-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          # The package would otherwise create a cluster and start it.
+          sudo install -d /etc/postgresql-common/createcluster.d
+          echo "create_main_cluster = false" \
+            | sudo tee /etc/postgresql-common/createcluster.d/security-review.conf > /dev/null
+          # Only this source: the lists of the others are fresh from the step before.
+          sudo apt-get update -qq -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/pgdg.list \
+            -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y -qq "postgresql-$POSTGRES_VERSION" > /dev/null
+          bin="/usr/lib/postgresql/$POSTGRES_VERSION/bin"
+          "$bin/postgres" --version
+
+          {
+            echo "bin=$bin"
+            echo "user=$user"
+            echo "password=$password"
+            echo "port=$port"
+            echo "name=$name"
+          } > pr/.security-review/database.conf
+          mkdir -p pr/.security-review/bin
+          cat > pr/.security-review/bin/with-database <<'SCRIPT'
+          #!/usr/bin/env bash
+          # Written by the workflow of the review, not part of the pull request.
+          #
+          # Starts the PostgreSQL of this review, runs the command given and stops the
+          # server again. A process of the sandbox ends with the command that started
+          # it, so the server lives for one command; what it stored stays under
+          # .security-review/cache for the next one.
+          set -euo pipefail
+
+          here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          review="$(dirname "$here")"
+          # shellcheck source=/dev/null
+          . "$review/database.conf"
+          root="$review/cache/postgres"
+          data="$root/data"
+          export PATH="$bin:$PATH"
+
+          if [ "$#" -eq 0 ]; then
+            echo "Aufruf: with-database <Befehl> [Argumente ...]" >&2
+            exit 64
+          fi
+
+          fail() {
+            echo "Die Datenbank startet nicht ($1)." >&2
+            if [ -f "$2" ]; then
+              tail -n 15 "$2" >&2
+            fi
+            exit 69
+          }
+
+          mkdir -p "$root"
+          # One server on one data directory. The server inherits the descriptor, so the
+          # lock is held for as long as a server lives, whatever became of this script.
+          exec 9> "$root/lock"
+          if ! flock --wait 600 9; then
+            echo "Die Datenbank ist von einem anderen Befehl belegt." >&2
+            exit 75
+          fi
+
+          fresh=false
+          if [ ! -f "$root/ready" ]; then
+            rm -rf "$data"
+            printf '%s\n' "$password" > "$root/password"
+            # Byte order and UTF-8, which is what the image of the CI sorts by.
+            initdb --pgdata="$data" --username="$user" --pwfile="$root/password" \
+              --auth-host=scram-sha-256 --auth-local=reject \
+              --encoding=UTF8 --locale=C.UTF-8 --no-sync --no-instructions \
+              > "$root/initdb.log" 2>&1 || fail "initdb" "$root/initdb.log"
+            rm -f "$root/password"
+            # Reachable over TCP on the loopback of the sandbox and nowhere else: the
+            # sandbox allows no Unix socket. Nothing here outlives the job, so nothing
+            # waits for the disk.
+            cat >> "$data/postgresql.conf" <<CONFIG
+          listen_addresses = '127.0.0.1'
+          port = $port
+          unix_socket_directories = ''
+          fsync = off
+          synchronous_commit = off
+          full_page_writes = off
+          timezone = 'UTC'
+          log_timezone = 'UTC'
+          CONFIG
+            fresh=true
+          fi
+
+          # A server of an earlier command died with its process namespace and left its
+          # lock file behind. The number in it may belong to any process of this one.
+          rm -f "$data/postmaster.pid"
+          pg_ctl --pgdata="$data" --log="$root/server.log" --wait --timeout=60 --silent start \
+            || fail "pg_ctl start" "$root/server.log"
+          trap 'pg_ctl --pgdata="$data" --mode=fast --wait --silent stop > /dev/null 2>&1 || true' EXIT
+
+          if [ "$fresh" = "true" ]; then
+            if [ "$name" != "postgres" ]; then
+              PGPASSWORD="$password" createdb --host=127.0.0.1 --port="$port" --username="$user" "$name" \
+                > "$root/createdb.log" 2>&1 || fail "createdb" "$root/createdb.log"
+            fi
+            touch "$root/ready"
+          fi
+
+          export DATABASE_URL="${DATABASE_URL:-postgres://$user:$password@127.0.0.1:$port/$name}"
+          set +e
+          "$@" 9>&-
+          status=$?
+          set -e
+          exit "$status"
+          SCRIPT
+          chmod +x pr/.security-review/bin/with-database
+          echo "DATABASE_READY=true" >> "$GITHUB_ENV"
+          echo "Die Programme stehen bereit, den Server startet das Review in der Sandbox (127.0.0.1:$port/$name)."
+
       # A process of the runner user could otherwise become root and read the
       # memory of the runner, the identity token among it. Docker is the
       # second way there: the runner user is in its group, and a container
       # with the root of the host mounted is root as well. The daemon stops
-      # first, while sudo still can stop it. From here on there is no way back
-      # to root in this job, and both are checked, not assumed.
+      # first, while sudo still can stop it, and so does a PostgreSQL the
+      # image brings along or the installation above started: the only one
+      # the review reaches is its own, inside the sandbox. From here on there
+      # is no way back to root in this job, and all three are checked, not
+      # assumed.
       - name: sudo und Docker abschalten
         run: |
           sudo systemctl stop docker.socket docker.service containerd.service || true
+          sudo systemctl stop postgresql.service 'postgresql@*.service' 2> /dev/null || true
+          sudo pkill -KILL -x postgres || true
           sudo find /etc/sudoers.d -type f -exec grep -l runner {} + | xargs -r sudo rm -f
           if sudo -n true 2> /dev/null; then
             echo "sudo ist noch möglich, das Review läuft so nicht."
@@ -305,13 +540,20 @@ jobs:
             echo "Docker antwortet noch, das Review läuft so nicht."
             exit 1
           fi
-          echo "sudo und Docker sind abgeschaltet."
+          if pgrep -x postgres > /dev/null; then
+            echo "Ein PostgreSQL läuft außerhalb der Sandbox, das Review läuft so nicht."
+            exit 1
+          fi
+          echo "sudo und Docker sind abgeschaltet, außerhalb der Sandbox läuft keine Datenbank."
 
       - name: Auftrag zusammenstellen
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          # Named in the prompt only where the step above has matched it
+          # against its pattern (DATABASE_READY).
+          DATABASE: ${{ inputs.database }}
         run: |
           cat > "$RUNNER_TEMP/prompt-template.md" <<'PROMPT'
           # PR-Security-Review (automatischer Lauf in GitHub Actions)
@@ -402,14 +644,43 @@ jobs:
           import os
 
           if os.environ['TRUSTED'] == 'true':
+              if os.environ.get('DATABASE_READY') == 'true':
+                  database = (
+                      'In der Sandbox gibt es eine Datenbank: PostgreSQL ' + os.environ['POSTGRES_VERSION']
+                      + ', leer und nur für dieses Review. `with-database <Befehl>` startet sie, führt den '
+                      'Befehl aus und hält sie wieder an, auch aus der Kopie heraus. Der Server lebt für diesen einen '
+                      'Befehl; was er gespeichert hat, bleibt für den nächsten. Der Befehl findet sie unter '
+                      '`DATABASE_URL` (`' + os.environ['DATABASE'] + '`, die Rolle darf alles), so wie die '
+                      'Tests des Repositorys sie erwarten; `psql "$DATABASE_URL"` geht ebenso. Ändert der '
+                      'PR etwas, das erst die Datenbank durchsetzt (Policy, Trigger, Recht einer Rolle, '
+                      'Constraint, Migration), oder stützt sich neuer Code des PRs darauf, etwa eine Route '
+                      'auf die Trennung nach Mandant und Bereich, dann lies den Beleg nicht nur, sondern '
+                      'führe ihn aus: die Testdateien des PRs, die es halten, oder einen eigenen '
+                      'Gegenversuch. Es bleibt bei einzelnen Testdateien am geänderten Bereich; die ganze '
+                      'Testreihe läuft in der CI des PRs, nicht hier. Berührt der PR nichts dergleichen, '
+                      'brauchst du die Datenbank nicht. Installieren und Bauen brauchen Minuten: gib einem '
+                      'solchen Befehl ein `timeout` bis 600000 und kürze lange Ausgaben (`| tail -n 40`). '
+                      'Was du mit der Datenbank ausgeführt hast, nennst du im Bericht: Befehl oder '
+                      'Testdatei und Ergebnis. Startet sie nicht, ist das kein Befund: nenne die Meldung '
+                      'im Bericht und prüfe lesend weiter. Was sich auch so nicht belegen lässt, bleibt '
+                      '`open_proof_gap`. '
+                  )
+              else:
+                  database = (
+                      'Eine Datenbank gibt es in der Sandbox nicht, Tests mit Datenbank laufen in der CI '
+                      'des PRs. Was sich nur mit Datenbank belegen ließe, bleibt `open_proof_gap`. '
+                  )
               mode = (
                   'Review mit Shell: Der PR kommt von einem Mitglied aus einem Branch des Repositorys. '
                   'Deine Shell läuft in einer Sandbox: ohne Netz außer der npm-Registry, ohne sudo, '
-                  'schreibend nur im Arbeitsverzeichnis. Abhängigkeiten sind nicht installiert; '
-                  'brauchst du Tests, installiere mit `corepack pnpm install --frozen-lockfile` '
-                  '(oder `npm ci`) und baue mit `corepack pnpm run build`. Eine Datenbank gibt es in der '
-                  'Sandbox nicht, Tests mit Datenbank laufen in der CI des PRs. Was sich nur mit '
-                  'Datenbank belegen ließe, bleibt `open_proof_gap`. Niemals gegen Produktion testen.'
+                  'schreibend nur im Arbeitsverzeichnis. Abhängigkeiten sind nicht installiert, und im '
+                  'Arbeitsverzeichnis selbst lässt sich nichts installieren: `package.json`, die '
+                  'Lockfiles, `node_modules/.bin`, `scripts` und `.github` sind dort schreibgeschützt. '
+                  'Brauchst du Tests, arbeite in einer Kopie des Checkouts: `cd "$(review-workspace)"` '
+                  'legt sie beim ersten Aufruf an (ohne `.git`) und wechselt hinein. Dort installierst du '
+                  'mit `pnpm install --frozen-lockfile` (oder `npm ci`) und baust mit `pnpm run build`. '
+                  + database
+                  + 'Niemals gegen Produktion testen.'
               )
           else:
               mode = (
@@ -446,7 +717,11 @@ jobs:
       # would pick something up: the files behind GITHUB_ENV and GITHUB_PATH
       # in the runner's temp directory, the code of the actions and the tool
       # cache. Writing is limited to the checkout and a temp directory of the
-      # sandbox anyway; these are named so that it stays so. --safe-mode and --setting-sources user
+      # sandbox anyway; these are named so that it stays so. The registry is
+      # reached through the proxy of the sandbox alone, and Corepack does not
+      # read the proxy variables by itself: NODE_USE_ENV_PROXY makes Node do
+      # it, and means nothing outside the sandbox, where none is set.
+      # --safe-mode and --setting-sources user
       # load nothing of the checkout; dontAsk turns down every tool not
       # allowed instead of asking.
       - name: Review mit Claude Code
@@ -505,6 +780,8 @@ jobs:
               ANTHROPIC_IDENTITY_TOKEN_FILE="$token_file" \
               CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
               COREPACK_HOME="$cache/corepack" \
+              NODE_USE_ENV_PROXY=1 \
+              PATH="$GITHUB_WORKSPACE/pr/.security-review/bin:$PATH" \
               npm_config_cache="$cache/npm" \
               npm_config_store_dir="$cache/pnpm-store" \
               XDG_CACHE_HOME="$cache/xdg" \
