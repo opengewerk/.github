@@ -311,6 +311,54 @@ jobs:
           sudo apt-get install -y -qq bubblewrap socat > /dev/null
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # In the checkout itself nothing installs: with
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB the sandbox keeps package.json, the
+      # lockfiles, node_modules/.bin, scripts and .github of the working
+      # directory read-only, so that no later step runs what the agent wrote
+      # there. That stays as it is. For tests the agent works in a copy of the
+      # checkout under .security-review/cache, which the script written here
+      # makes on its first call, inside the sandbox, and which goes with the
+      # checkout. The folder of the scripts is put on the path of the agent
+      # below; the sandbox lets nothing write into a folder on the path.
+      - name: Arbeitskopie für Tests vorbereiten
+        if: ${{ env.TRUSTED == 'true' }}
+        run: |
+          mkdir -p pr/.security-review/bin pr/.security-review/cache
+          # Not searched along with the checkout: the copy would double every hit.
+          echo '*' > pr/.security-review/cache/.ignore
+          cat > pr/.security-review/bin/review-workspace <<'SCRIPT'
+          #!/usr/bin/env bash
+          # Written by the workflow of the review, not part of the pull request.
+          #
+          # Prints the path of a copy of the checkout to install, build and test in.
+          # In the checkout itself the sandbox keeps package.json, the lockfiles,
+          # node_modules/.bin, scripts and .github read-only. The copy holds what git
+          # tracks, is made on the first call and lies under .security-review/cache,
+          # which goes with the checkout when the agent has ended.
+          set -euo pipefail
+
+          here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          review="$(dirname "$here")"
+          checkout="$(dirname "$review")"
+          work="$review/cache/work"
+
+          mkdir -p "$review/cache"
+          exec 8> "$review/cache/work.lock"
+          flock --wait 600 8
+          if [ ! -f "$review/cache/work.copied" ]; then
+            rm -rf "$work"
+            mkdir -p "$work"
+            # What git knows as the content of the checkout, its submodules included:
+            # over names it protects the sandbox lays devices that cannot be copied,
+            # and what an installation in the checkout left behind is not wanted.
+            git -C "$checkout" ls-files -z --recurse-submodules \
+              | tar -C "$checkout" --null --no-recursion -T - -cf - | tar -C "$work" -xf -
+            touch "$review/cache/work.copied"
+          fi
+          echo "$work"
+          SCRIPT
+          chmod +x pr/.security-review/bin/review-workspace
+
       # A database for the review, where the calling repository names one and
       # the organisation has not switched it off. Only the programs come from
       # here, with sudo and before anything of the pull request runs: no
@@ -322,10 +370,9 @@ jobs:
       #
       # The address comes from the calling workflow, on pull_request the one
       # of the pull request: it is matched against a pattern and reaches no
-      # command line. Script and settings lie in the checkout, where the agent
-      # can change them; they only ever run inside the sandbox. Whatever fails
-      # here leaves the review without a database, as it was before, and
-      # never without a review.
+      # command line. Script and settings lie in the checkout and only ever
+      # run inside the sandbox. Whatever fails here leaves the review without
+      # a database, as it was before, and never without a review.
       - name: Datenbank für die Sandbox bereitstellen
         if: ${{ env.TRUSTED == 'true' && inputs.database != '' && vars.SECURITY_REVIEW_DATABASE != 'aus' }}
         continue-on-error: true
@@ -377,7 +424,8 @@ jobs:
             echo "port=$port"
             echo "name=$name"
           } > pr/.security-review/database.conf
-          cat > pr/.security-review/with-database <<'SCRIPT'
+          mkdir -p pr/.security-review/bin
+          cat > pr/.security-review/bin/with-database <<'SCRIPT'
           #!/usr/bin/env bash
           # Written by the workflow of the review, not part of the pull request.
           #
@@ -388,14 +436,15 @@ jobs:
           set -euo pipefail
 
           here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          review="$(dirname "$here")"
           # shellcheck source=/dev/null
-          . "$here/database.conf"
-          root="$here/cache/postgres"
+          . "$review/database.conf"
+          root="$review/cache/postgres"
           data="$root/data"
           export PATH="$bin:$PATH"
 
           if [ "$#" -eq 0 ]; then
-            echo "Aufruf: .security-review/with-database <Befehl> [Argumente ...]" >&2
+            echo "Aufruf: with-database <Befehl> [Argumente ...]" >&2
             exit 64
           fi
 
@@ -464,7 +513,7 @@ jobs:
           set -e
           exit "$status"
           SCRIPT
-          chmod +x pr/.security-review/with-database
+          chmod +x pr/.security-review/bin/with-database
           echo "DATABASE_READY=true" >> "$GITHUB_ENV"
           echo "Die Programme stehen bereit, den Server startet das Review in der Sandbox (127.0.0.1:$port/$name)."
 
@@ -598,8 +647,8 @@ jobs:
               if os.environ.get('DATABASE_READY') == 'true':
                   database = (
                       'In der Sandbox gibt es eine Datenbank: PostgreSQL ' + os.environ['POSTGRES_VERSION']
-                      + ', leer und nur für dieses Review. `.security-review/with-database <Befehl>` startet '
-                      'sie, führt den Befehl aus und hält sie wieder an. Der Server lebt für diesen einen '
+                      + ', leer und nur für dieses Review. `with-database <Befehl>` startet sie, führt den '
+                      'Befehl aus und hält sie wieder an, auch aus der Kopie heraus. Der Server lebt für diesen einen '
                       'Befehl; was er gespeichert hat, bleibt für den nächsten. Der Befehl findet sie unter '
                       '`DATABASE_URL` (`' + os.environ['DATABASE'] + '`, die Rolle darf alles), so wie die '
                       'Tests des Repositorys sie erwarten; `psql "$DATABASE_URL"` geht ebenso. Ändert der '
@@ -624,9 +673,13 @@ jobs:
               mode = (
                   'Review mit Shell: Der PR kommt von einem Mitglied aus einem Branch des Repositorys. '
                   'Deine Shell läuft in einer Sandbox: ohne Netz außer der npm-Registry, ohne sudo, '
-                  'schreibend nur im Arbeitsverzeichnis. Abhängigkeiten sind nicht installiert; '
-                  'brauchst du Tests, installiere mit `pnpm install --frozen-lockfile` '
-                  '(oder `npm ci`) und baue mit `pnpm run build`. ' + database
+                  'schreibend nur im Arbeitsverzeichnis. Abhängigkeiten sind nicht installiert, und im '
+                  'Arbeitsverzeichnis selbst lässt sich nichts installieren: `package.json`, die '
+                  'Lockfiles, `node_modules/.bin`, `scripts` und `.github` sind dort schreibgeschützt. '
+                  'Brauchst du Tests, arbeite in einer Kopie des Checkouts: `cd "$(review-workspace)"` '
+                  'legt sie beim ersten Aufruf an (ohne `.git`) und wechselt hinein. Dort installierst du '
+                  'mit `pnpm install --frozen-lockfile` (oder `npm ci`) und baust mit `pnpm run build`. '
+                  + database
                   + 'Niemals gegen Produktion testen.'
               )
           else:
@@ -728,6 +781,7 @@ jobs:
               CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
               COREPACK_HOME="$cache/corepack" \
               NODE_USE_ENV_PROXY=1 \
+              PATH="$GITHUB_WORKSPACE/pr/.security-review/bin:$PATH" \
               npm_config_cache="$cache/npm" \
               npm_config_store_dir="$cache/pnpm-store" \
               XDG_CACHE_HOME="$cache/xdg" \
