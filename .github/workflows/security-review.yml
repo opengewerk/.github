@@ -286,6 +286,14 @@ jobs:
       - name: Claude Code installieren
         run: npm install --global "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 
+      # pnpm on the path, as in the CI of the repositories: turbo looks for it
+      # there and finds none behind `corepack pnpm`. Only the shims of the Node
+      # distribution are written here. The version a repository names is
+      # fetched by the first call of the agent, inside the sandbox.
+      - name: pnpm über Corepack bereitstellen
+        if: ${{ env.TRUSTED == 'true' }}
+        run: corepack enable
+
       # The sandbox of Claude Code needs bubblewrap and socat, and on Ubuntu
       # 24.04 user namespaces that AppArmor otherwise refuses an unprivileged
       # process. Done with sudo before anything of the pull request exists
@@ -617,8 +625,8 @@ jobs:
                   'Review mit Shell: Der PR kommt von einem Mitglied aus einem Branch des Repositorys. '
                   'Deine Shell läuft in einer Sandbox: ohne Netz außer der npm-Registry, ohne sudo, '
                   'schreibend nur im Arbeitsverzeichnis. Abhängigkeiten sind nicht installiert; '
-                  'brauchst du Tests, installiere mit `corepack pnpm install --frozen-lockfile` '
-                  '(oder `npm ci`) und baue mit `corepack pnpm run build`. ' + database
+                  'brauchst du Tests, installiere mit `pnpm install --frozen-lockfile` '
+                  '(oder `npm ci`) und baue mit `pnpm run build`. ' + database
                   + 'Niemals gegen Produktion testen.'
               )
           else:
@@ -656,7 +664,11 @@ jobs:
       # would pick something up: the files behind GITHUB_ENV and GITHUB_PATH
       # in the runner's temp directory, the code of the actions and the tool
       # cache. Writing is limited to the checkout and a temp directory of the
-      # sandbox anyway; these are named so that it stays so. --safe-mode and --setting-sources user
+      # sandbox anyway; these are named so that it stays so. The registry is
+      # reached through the proxy of the sandbox alone, and Corepack does not
+      # read the proxy variables by itself: NODE_USE_ENV_PROXY makes Node do
+      # it, and means nothing outside the sandbox, where none is set.
+      # --safe-mode and --setting-sources user
       # load nothing of the checkout; dontAsk turns down every tool not
       # allowed instead of asking.
       - name: Review mit Claude Code
@@ -715,6 +727,7 @@ jobs:
               ANTHROPIC_IDENTITY_TOKEN_FILE="$token_file" \
               CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
               COREPACK_HOME="$cache/corepack" \
+              NODE_USE_ENV_PROXY=1 \
               npm_config_cache="$cache/npm" \
               npm_config_store_dir="$cache/pnpm-store" \
               XDG_CACHE_HOME="$cache/xdg" \
