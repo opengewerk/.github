@@ -391,14 +391,17 @@ jobs:
 
           # The package source of PostgreSQL: the image of the runner brings an
           # older version than the applications need. Its key is checked
-          # against the fingerprint above, wherever it came from.
+          # against the fingerprint above, wherever it came from: apt trusts
+          # every key of the file, so the file has to hold that one and no
+          # other. Each primary key is a pub record followed by its fpr.
           key=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
           if [ ! -s "$key" ]; then
             sudo install -d "$(dirname "$key")"
             sudo curl -sS --fail --location -o "$key" https://www.postgresql.org/media/keys/ACCC4CF8.asc
           fi
-          fingerprint="$(gpg --show-keys --with-colons "$key" 2> /dev/null | awk -F: '$1 == "fpr" && !seen++ { print $10 }')"
-          if [ "$fingerprint" != "$POSTGRES_KEY" ]; then
+          fingerprints="$(gpg --show-keys --with-colons "$key" 2> /dev/null \
+            | awk -F: '$1 == "pub" { primary = 1; next } primary && $1 == "fpr" { print $10; primary = 0 }')"
+          if [ "$fingerprints" != "$POSTGRES_KEY" ]; then
             echo "::error::Der Schlüssel der Paketquelle von PostgreSQL ist nicht der erwartete. Das Review läuft ohne Datenbank."
             exit 1
           fi
