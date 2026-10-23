@@ -30,7 +30,7 @@ Daraus folgt zweierlei: Es wird keine kommerzielle Fassung und keine bezahlten E
 
 ## Stand der Dinge
 
-**Handwerkersoftware.** Das Fundament und Phase 1, der MVP für den Pilotbetrieb, sind gebaut; die neueste Fassung ist [OpenGewerk 0.6.0](https://github.com/opengewerk/opengewerk/releases) vom 20.10.2026. Eine Installation läuft über Docker Compose auf eigener Hardware, auf x86_64 wie auf ARM64, kommt als Release mit signierten Abbildern, wird im Browser eingerichtet und sichert sich jede Nacht selbst. Sie führt Kunden, Objekte, Anlagen und Aufträge, im Büro wie auf der Baustelle und dort auch ohne Netz. Dazu gibt es:
+**Handwerkersoftware.** Das Fundament und Phase 1, der MVP für den Pilotbetrieb, sind gebaut; die neueste Fassung ist [OpenGewerk 0.6.2](https://github.com/opengewerk/opengewerk/releases) vom 23.10.2026. Eine Installation läuft über Docker Compose auf eigener Hardware, auf x86_64 wie auf ARM64, kommt als Release mit signierten Abbildern, wird im Browser eingerichtet und sichert sich jede Nacht selbst. Sie führt Kunden, Objekte, Anlagen und Aufträge, im Büro wie auf der Baustelle und dort auch ohne Netz. Dazu gibt es:
 
 - Belege von Angebot und Kostenvoranschlag über die Auftragsbestätigung bis zur Rechnung, mit Abschlägen, Schlussrechnung und Storno, als PDF, per E-Mail und an Unternehmen als E-Rechnung im Format XRechnung oder ZUGFeRD. An jedem Angebot an einen Verbraucher hängt die Widerrufsbelehrung.
 - Den Regiebericht, auf der Baustelle geschrieben und vom Kunden auf dem Gerät unterschrieben, dazu Zeiterfassung, Fotos, Dateien und Aufgaben.
